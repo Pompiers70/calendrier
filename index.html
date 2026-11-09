@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.29</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.34</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.29</p>
+  <p class="sub">Calendriers des pompiers · v4.34</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -689,7 +689,7 @@ function init(){
     if(ok){T.list.forEach(function(t){subscribe(t.code);}); setSync(navigator.onLine?'loading':'offline'); setTimeout(function(){if(state.sync==='loading')setSync('slow');},10000);}
     else setSync('local');
     if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
-    if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid);}); startVie();}
+    if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid); checkClosed(x.cid);}); startVie();}
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
   });
@@ -733,7 +733,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.29';
+var DBG=[], VERSION='4.34';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -988,7 +988,15 @@ function clotureDo(){
   var ids=Object.keys(state.ventes); state.ventes={}; saveLocal();
   var code=T.cur, s=cfgJSON(state.config);
   cloudDo(function(){return docRef(code).set({cfg:s},{merge:true}).then(function(){return Promise.all(ids.map(function(id){return colRef(code).doc(id).delete();}));});});
-  requestRender(); toast('Année '+an+' clôturée'); histoPanel();
+  requestRender(); toast('Année '+an+' clôturée');
+  var t0=T.list.filter(function(x){return x.code===code;})[0];
+  tidOf(code).then(function(tid){
+    var cid=(t0&&t0.cid)||T.ccur; if(!fs||!cid||!casOf(cid))return;
+    return caseDoc(cid).collection('tournees').doc(tid).get().then(function(d){
+      if(!d.exists)return; var e=d.data();
+      return casClotures(cid).then(function(old){return caseDoc(cid).set({clotures:old.concat([{an:an,ts:Date.now(),tours:[{id:tid,nom:e.nom,par:e.par||'',parNom:e.parNom||'',encA:e.encA||null,encG:e.encG||null}]}])},{merge:true});}).then(function(){return caseDoc(cid).collection('tournees').doc(tid).delete();});
+    });
+  }).catch(function(){}).then(function(){leaveTour(code,'Année '+an+' clôturée : la tournée est dans l\'historique',true);});
 }
 function histoPanel(){
   if(!canArchive())return;
@@ -1028,26 +1036,29 @@ function casClotPanel(cid){
 function casClotDo(cid,btn){
   if(!isCasAdmin(cid)||!fs)return; var an=($('#cl-an')&&$('#cl-an').value||'').trim()||String(new Date().getFullYear()), st=$('#cl-st'); if(btn)btn.disabled=true; if(st)st.textContent='Clôture en cours…';
   casCodes(cid).then(function(list){
-    var done=0, tot=0, curIds={}; ((casCache&&casCache.tours)||[]).forEach(function(e){curIds[e.id]=e;});
+    var done=0, tot=0, skipped=0, curIds={}; ((casCache&&casCache.tours)||[]).forEach(function(e){curIds[e.id]=e;});
     list=list.filter(function(x){return curIds[x.id];});
     return Promise.all(list.map(function(x){
       return docRef(x.code).get().then(function(d){
         var data=d.exists?d.data():null; if(!data)return;
         return colRef(x.code).get().then(function(q){
-          if(!q.docs.length)return; var vs=q.docs.map(function(z){return z.data();}); var cfg={}; try{cfg=JSON.parse(data.cfg||'{}');}catch(e){}
+          var vs=q.docs.map(function(z){return z.data();}); var cfg={}; try{cfg=JSON.parse(data.cfg||'{}');}catch(e){}
           cfg.archives=(cfg.archives||[]).concat([{an:an,ts:Date.now(),par:T.me||'',ventes:vs}]); cfg.caisse=null;
-          return docRef(x.code).set({cfg:JSON.stringify(cfg)},{merge:true}).then(function(){return Promise.all(q.docs.map(function(z){return colRef(x.code).doc(z.id).delete();}));}).then(function(){done++; tot+=vs.length;});
+          return docRef(x.code).set({cfg:JSON.stringify(cfg)},{merge:true}).then(function(){return Promise.all(q.docs.map(function(z){return colRef(x.code).doc(z.id).delete();}));}).then(function(){x.ok=true; done++; tot+=vs.length;});
         });
       });
     })).then(function(){
-      if(!list.length)return {done:done,tot:tot};
+      list=list.filter(function(x){return x.ok;}); if(!list.length)return {done:0,tot:0,n:0,skipped:skipped};
       var ents=list.map(function(x){var e=curIds[x.id]; return {id:x.id,nom:e.nom,par:e.par||'',parNom:e.parNom||'',encA:e.encA||null,encG:e.encG||null};});
       return casClotures(cid).then(function(old){
         return caseDoc(cid).set({clotures:old.concat([{an:an,ts:Date.now(),tours:ents}])},{merge:true});
-      }).then(function(){return Promise.all(list.map(function(x){return caseDoc(cid).collection('tournees').doc(x.id).delete();}));}).then(function(){return {done:done,tot:tot};});
+      }).then(function(){return Promise.all(list.map(function(x){return caseDoc(cid).collection('tournees').doc(x.id).delete();}));}).then(function(){return {done:done,tot:tot,n:list.length};});
     });
   }).then(function(r){
-    toast(r.done?('Année '+an+' clôturée : '+r.tot+' ventes rangées'):'Rien à clôturer'); casClotDone(cid);
+    if(!r.n){toast('Aucune tournée ouverte à clôturer.'); var bb=$('#sheet [data-a=casclotok]'); if(bb)bb.disabled=false; return;}
+    toast(r.n?('Année '+an+' clôturée : '+r.tot+' vente'+(r.tot>1?'s':'')+' rangée'+(r.tot>1?'s':'')):'Rien à clôturer');
+    if(r.n){((casCache&&casCache.mem)||[]).forEach(function(m){caseDoc(cid).collection('membres').doc(m.id).set({aff:null,affEnc:null},{merge:true}).catch(function(){});});}
+    casClotDone(cid); checkClosed(cid);
   }).catch(function(){if(btn)btn.disabled=false; if(st)st.textContent='Échec (réseau ou règles Firebase). Rien n\'est perdu : réessaie.';});
 }
 var HC=null;
@@ -1080,16 +1091,32 @@ function casRefairePanel(cid){
   if(!isCasAdmin(cid)||!fs)return; openPanel(panelHead('Refaire les tournées','')+'<p class="hint">Chargement…</p>');
   casClotures(cid).then(function(l){
     l=l.slice().sort(function(a,b){return b.ts-a.ts;});
-    openPanel(panelHead('Refaire les tournées','Nouvelle année')+(l.length?'<p class="hint">Choisis l\'année dont tu veux remettre toutes les tournées (mêmes rues, mêmes noms, ventes à zéro).</p>'+l.map(function(z){return '<button type="button" class="row" data-a="casrefok" data-cid="'+cid+'" data-ts="'+z.ts+'"><span class="rn">Année '+esc(z.an)+'<small>'+(z.tours||[]).map(function(e){return esc(e.nom);}).join(', ')+'</small></span><span class="rm"><b>'+(z.tours||[]).length+'</b></span></button>';}).join(''):'<p class="empty">Aucune année clôturée pour l\'instant.</p>'));
+    openPanel(panelHead('Refaire les tournées','Nouvelle année')+(l.length?'<p class="hint">Choisis l\'année dont tu veux remettre toutes les tournées (mêmes rues, mêmes noms, ventes à zéro).</p><p class="hint">Seules les tournées <b>clôturées</b> peuvent être refaites. Une fois refaites, elles ne sont plus dans cette liste.</p>'+l.map(function(z){return z.refait?'<button type="button" class="row" data-a="casrefdone" data-an="'+esc(z.an)+'" style="opacity:.55"><span class="rn">Année '+esc(z.an)+'<small>Déjà refaites</small></span><span class="rm"><b>✓</b></span></button>':'<button type="button" class="row" data-a="casrefok" data-cid="'+cid+'" data-ts="'+z.ts+'"><span class="rn">Année '+esc(z.an)+'<small>'+(z.tours||[]).map(function(e){return esc(e.nom);}).join(', ')+'</small></span><span class="rm"><b>'+(z.tours||[]).length+'</b></span></button>';}).join(''):'<p class="empty">Il n\'y a aucune tournée à refaire : il faut d\'abord clôturer des tournées ouvertes.</p>'));
   });
 }
 function casRefaire(cid,ts,btn){
   if(!isCasAdmin(cid)||!fs)return; if(btn)btn.disabled=true;
   casClotures(cid).then(function(l){
     var z=l.filter(function(x){return String(x.ts)===String(ts);})[0]; if(!z)return;
+    if(z.refait){toast('Ces tournées ont déjà été refaites.'); if(btn)btn.disabled=false; return;}
     return Promise.all((z.tours||[]).map(function(e){return caseDoc(cid).collection('tournees').doc(e.id).set({nom:e.nom,par:e.par||'',parNom:e.parNom||'',ts:Date.now(),encA:e.encA||null,encG:e.encG||null,adm:true});}))
-      .then(function(){toast((z.tours||[]).length+' tournée(s) remise(s) dans la caserne'); casPanel(cid);});
+      .then(function(){z.refait=true; return caseDoc(cid).set({clotures:l},{merge:true});}).then(function(){toast((z.tours||[]).length+' tournée(s) remise(s) dans la caserne'); casPanel(cid);});
   }).catch(function(){if(btn)btn.disabled=false; toast('Échec (réseau ?)');});
+}
+
+function checkClosed(cid){
+  if(!fs)return; var cs=casOf(cid); if(!cs||cs.visitor)return;
+  Promise.all([casClotures(cid),caseDoc(cid).collection('tournees').get(),Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});}))]).then(function(r){
+    var reg={}; r[1].docs.forEach(function(d){reg[d.id]=1;}); var last=lsGet('clo:'+cid,0)||0, mx=last;
+    r[0].forEach(function(z){ if(z.ts>mx)mx=z.ts; if(z.ts<=last)return;
+      (z.tours||[]).forEach(function(e){ if(reg[e.id])return; T.list.filter(function(t){return t.tid===e.id;}).forEach(function(t){leaveTour(t.code,'Année clôturée : tu as quitté ta tournée',true);}); }); });
+    if(mx>last)lsSet('clo:'+cid,mx);
+  }).catch(function(){});
+}
+function casStopAdmin(cid){
+  var c=casOf(cid); if(!c)return; try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){}
+  c.admin=false; saveCas(); if(c.mid)caseDoc(cid).collection('membres').doc(c.mid).set({admin:false},{merge:true}).catch(function(){});
+  toast('Tu n\'es plus administrateur'); casPanel(cid);
 }
 
 
@@ -1199,6 +1226,7 @@ function casPanel(cid){
   var adm=isCasAdmin(cid);
   openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
    +(true?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
+   +(lsGet('ak:'+cid,null)&&!cs.visitor?'<button type="button" class="mi" data-a="casstopadm" data-cid="'+cid+'" style="margin-top:18px">Arrêter d\'être administrateur</button><p class="note" style="margin:4px 0 0">Tu pourras le redevenir avec le code administrateur de la caserne.</p>':'')
    +(adm?'<button type="button" class="mi danger" data-a="casdel" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Supprimer cette caserne</button>':'')
    +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
   casLoad(cid);
@@ -1212,7 +1240,7 @@ function casRender(cid,tours,mem){
     if(adm&&!cs.visitor)h+='<button type="button" class="mi" data-a="newt" style="margin-top:6px">+ Créer une tournée pour la caserne</button><p class="note" style="margin:0 0 8px">Elle ne sera affectée à personne, toi compris : utilise « Affecter » ensuite.</p>';
     h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
     if(adm&&tl.length&&ml.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
-    if(adm&&!cs.visitor)h+='<div class="mg" style="margin-top:6px"><button type="button" class="mi" data-a="cashisto" data-cid="'+cid+'">Historique</button>'+(tl.length?'<button type="button" class="mi" data-a="casclot" data-cid="'+cid+'">Clôturer l\'année (toutes)</button>':'<button type="button" class="mi" data-a="casrefaire" data-cid="'+cid+'">Refaire les tournées</button>')+'</div>';
+    if(adm&&!cs.visitor)h+='<div class="mg" style="margin-top:6px"><button type="button" class="mi" data-a="cashisto" data-cid="'+cid+'">Historique</button>'+(tl.length?'<button type="button" class="mi" data-a="casclot" data-cid="'+cid+'">Clôturer l\'année (toutes)</button>':'')+'<button type="button" class="mi" data-a="casrefaire" data-cid="'+cid+'">Refaire les tournées</button>'+'</div>';
     h+='<h2>Les membres</h2>';
     h+=ml.length?ml.map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id;
       return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
@@ -1401,7 +1429,7 @@ function beat(off){
 function startVie(){
   if(vieOn)return; vieOn=true; beat();
   setInterval(function(){if(!document.hidden)beat(); updateDots();},BEAT);
-  document.addEventListener('visibilitychange',function(){beat(document.hidden); if(!document.hidden)updateDots();});
+  document.addEventListener('visibilitychange',function(){beat(document.hidden); if(!document.hidden){updateDots(); T.cas.forEach(function(x){checkClosed(x.cid);});}});
   window.addEventListener('pagehide',function(){beat(true);});
   setInterval(updateDots,20000);
 }
@@ -1697,6 +1725,8 @@ document.addEventListener('click',function(e){
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
+  else if(a==='casstopadm'){if(armed(t,1500))casStopAdmin(t.dataset.cid);}
+  else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
   else if(a==='casrefok'){if(armed(t,1500))casRefaire(t.dataset.cid,t.dataset.ts,t);}
   else if(a==='cashisto')casHistoPanel(t.dataset.cid);
