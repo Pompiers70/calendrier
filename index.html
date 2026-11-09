@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.27</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.29</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.27</p>
+  <p class="sub">Calendriers des pompiers · v4.29</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -733,7 +733,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.27';
+var DBG=[], VERSION='4.29';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -996,13 +996,100 @@ function histoPanel(){
   openPanel(panelHead('Historique','')+(l.length?l.map(function(a){var s=archSum(a); return '<button type="button" class="row" data-a="histo1" data-ts="'+a.ts+'"><span class="rn">Année '+esc(a.an)+'<small>'+s.nb+' vente'+(s.nb>1?'s':'')+' · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</small></span><span class="rm"><b>'+eur(s.tot/100)+'</b></span></button>';}).join(''):'<p class="empty">Aucune année clôturée pour l\'instant.</p>'));
 }
 function histo1(ts){
-  var a=archList().filter(function(x){return String(x.ts)===String(ts);})[0]; if(!a)return;
+  var a=archList().filter(function(x){return String(x.ts)===String(ts);})[0]; if(!a)return; histoDetail(a,'Année '+a.an,'');
+}
+function histoDetail(a,titre,sous){
   var s=archSum(a);
-  var h=panelHead('Année '+a.an,'')+'<p class="hint"><b>'+eur(s.tot/100)+'</b> · '+s.nb+' ventes · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</p><h3 class="ch3">Par vendeur</h3>'
+  var h=panelHead(titre,sous||'')+'<p class="hint"><b>'+eur(s.tot/100)+'</b> · '+s.nb+' vente'+(s.nb>1?'s':'')+' · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</p><h3 class="ch3">Par vendeur</h3>'
    +Object.keys(s.par).sort().map(function(n){return '<div class="row"><span class="rn">'+esc(n)+'<small>'+s.par[n].nb+' vente'+(s.par[n].nb>1?'s':'')+'</small></span><span class="rm"><b>'+eur(s.par[n].tot/100)+'</b></span></div>';}).join('')
    +'<h3 class="ch3">Par maison</h3>'
    +a.ventes.filter(function(r){return r.statut==='vendu';}).sort(function(x,y){return (x.rueNom||x.rue||'').localeCompare(y.rueNom||y.rue||'','fr')||(parseInt(x.numero)||0)-(parseInt(y.numero)||0);}).map(function(r){return '<div class="row"><span class="rn">'+esc((r.numero||'')+' '+(r.rueNom||r.rue||''))+'<small>'+esc(r.nom||'—')+' · vendu par '+esc(parOf(r))+' · '+(r.paiement==='cheque'?'chèque':'espèces')+'</small></span><span class="rm"><b>'+eur((+r.montant||0))+'</b></span></div>';}).join('');
   openPanel(h);
+}
+
+/* ---------- depuis la caserne : tout clôturer / historique global ---------- */
+function casClotures(cid){return caseDoc(cid).get().then(function(d){return ((d.data()||{}).clotures)||[];}).catch(function(){return [];});}
+function casCodes(cid){
+  var cur=(casCache&&casCache.tours)||[]; return Promise.all([decKeyFor(cid),casClotures(cid)]).then(function(rr){
+    var k=rr[0], seen={}, tl=[]; cur.forEach(function(e){seen[e.id]=1; tl.push(e);}); rr[1].forEach(function(z){(z.tours||[]).forEach(function(e){if(!seen[e.id]){seen[e.id]=1; tl.push(e);}});});
+    if(!k)return [];
+    return Promise.all(tl.map(function(e){return decWith(k.key,e[k.f]).then(function(code){return {id:e.id,nom:e.nom,code:code};}).catch(function(){return null;});})).then(function(a){return a.filter(Boolean);});
+  });
+}
+function casClotPanel(cid){
+  if(!isCasAdmin(cid)||!casCache)return; var y=new Date().getFullYear(), n=casCache.tours.length;
+  openPanel(panelHead('Clôturer l\'année','Toute la caserne')
+   +'<p class="hint">Les ventes des '+n+' tournée'+(n>1?'s':'')+' de la caserne sont rangées dans l\'historique (avec le prénom de chaque vendeur), puis toutes les tournées repartent à zéro.</p>'
+   +'<p class="hint">Les noms saisis, les numéros ajoutés et les rues sont conservés.</p>'
+   +'<label class="lbl" for="cl-an">Année</label><input id="cl-an" type="text" inputmode="numeric" value="'+y+'" style="width:100%;font-size:20px;min-height:52px">'
+   +'<p id="cl-st" class="hint"></p>'
+   +'<button type="button" class="btn red" data-a="casclotok" data-cid="'+cid+'" style="width:100%;margin-top:14px;min-height:58px">Tout clôturer</button>');
+}
+function casClotDo(cid,btn){
+  if(!isCasAdmin(cid)||!fs)return; var an=($('#cl-an')&&$('#cl-an').value||'').trim()||String(new Date().getFullYear()), st=$('#cl-st'); if(btn)btn.disabled=true; if(st)st.textContent='Clôture en cours…';
+  casCodes(cid).then(function(list){
+    var done=0, tot=0, curIds={}; ((casCache&&casCache.tours)||[]).forEach(function(e){curIds[e.id]=e;});
+    list=list.filter(function(x){return curIds[x.id];});
+    return Promise.all(list.map(function(x){
+      return docRef(x.code).get().then(function(d){
+        var data=d.exists?d.data():null; if(!data)return;
+        return colRef(x.code).get().then(function(q){
+          if(!q.docs.length)return; var vs=q.docs.map(function(z){return z.data();}); var cfg={}; try{cfg=JSON.parse(data.cfg||'{}');}catch(e){}
+          cfg.archives=(cfg.archives||[]).concat([{an:an,ts:Date.now(),par:T.me||'',ventes:vs}]); cfg.caisse=null;
+          return docRef(x.code).set({cfg:JSON.stringify(cfg)},{merge:true}).then(function(){return Promise.all(q.docs.map(function(z){return colRef(x.code).doc(z.id).delete();}));}).then(function(){done++; tot+=vs.length;});
+        });
+      });
+    })).then(function(){
+      if(!list.length)return {done:done,tot:tot};
+      var ents=list.map(function(x){var e=curIds[x.id]; return {id:x.id,nom:e.nom,par:e.par||'',parNom:e.parNom||'',encA:e.encA||null,encG:e.encG||null};});
+      return casClotures(cid).then(function(old){
+        return caseDoc(cid).set({clotures:old.concat([{an:an,ts:Date.now(),tours:ents}])},{merge:true});
+      }).then(function(){return Promise.all(list.map(function(x){return caseDoc(cid).collection('tournees').doc(x.id).delete();}));}).then(function(){return {done:done,tot:tot};});
+    });
+  }).then(function(r){
+    toast(r.done?('Année '+an+' clôturée : '+r.tot+' ventes rangées'):'Rien à clôturer'); casClotDone(cid);
+  }).catch(function(){if(btn)btn.disabled=false; if(st)st.textContent='Échec (réseau ou règles Firebase). Rien n\'est perdu : réessaie.';});
+}
+var HC=null;
+function casHistoPanel(cid){
+  if(!isCasAdmin(cid)||!casCache||!fs)return;
+  openPanel(panelHead('Historique','Toute la caserne')+'<p class="hint">Chargement…</p>');
+  casCodes(cid).then(function(list){
+    return Promise.all(list.map(function(x){return docRef(x.code).get().then(function(d){var cfg={}; try{cfg=JSON.parse((d.data()||{}).cfg||'{}');}catch(e){} return (cfg.archives||[]).map(function(a){return {an:a.an,ts:a.ts,tour:x.nom,ventes:a.ventes||[]};});}).catch(function(){return [];});}));
+  }).then(function(r){
+    var by={}; [].concat.apply([],r).forEach(function(a){var y=by[a.an]||(by[a.an]={an:a.an,ventes:[],tours:{}}); a.ventes.forEach(function(v){var c=Object.assign({},v,{tour:a.tour}); y.ventes.push(c);}); y.tours[a.tour]=1;});
+    HC=by; var ys=Object.keys(by).sort().reverse();
+    openPanel(panelHead('Historique','Toute la caserne')+(ys.length?ys.map(function(k){var s=archSum(by[k]); return '<button type="button" class="row" data-a="hyear" data-y="'+esc(k)+'"><span class="rn">Année '+esc(k)+'<small>'+Object.keys(by[k].tours).length+' tournée(s) · '+s.nb+' vente'+(s.nb>1?'s':'')+' · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</small></span><span class="rm"><b>'+eur(s.tot/100)+'</b></span></button>';}).join(''):'<p class="empty">Aucune année clôturée pour l\'instant.</p>'));
+  }).catch(function(){openPanel(panelHead('Historique','')+'<p class="empty">Impossible de charger (réseau ?).</p>');});
+}
+function casHistoYear(y){
+  var a=HC&&HC[y]; if(!a)return; var s=archSum(a), tt={};
+  a.ventes.forEach(function(r){if(r.statut!=='vendu')return; var p=tt[r.tour]||(tt[r.tour]={nb:0,tot:0}); p.nb++; p.tot+=Math.round((+r.montant||0)*100);});
+  Object.keys(a.tours).forEach(function(n){if(!tt[n])tt[n]={nb:0,tot:0};});
+  var row=function(n,o){return '<div class="row"><span class="rn">'+esc(n)+'<small>'+o.nb+' vente'+(o.nb>1?'s':'')+'</small></span><span class="rm"><b>'+eur(o.tot/100)+'</b></span></div>';};
+  openPanel(panelHead('Année '+y,'Toute la caserne')+'<p class="hint"><b>'+eur(s.tot/100)+'</b> · '+s.nb+' vente'+(s.nb>1?'s':'')+'</p><h3 class="ch3">Les tournées (touche pour tout voir)</h3>'
+   +Object.keys(tt).sort().map(function(n){return '<button type="button" class="row" data-a="htour" data-y="'+esc(y)+'" data-t="'+esc(n)+'"><span class="rn">'+esc(n)+'<small>'+tt[n].nb+' vente'+(tt[n].nb>1?'s':'')+'</small></span><span class="rm"><b>'+eur(tt[n].tot/100)+'</b></span></button>';}).join('')
+   +'<h3 class="ch3">Par vendeur (toutes tournées)</h3>'+Object.keys(s.par).sort().map(function(n){return row(n,s.par[n]);}).join(''));
+}
+function casHistoTour(y,t){
+  var a=HC&&HC[y]; if(!a)return; var b={ventes:a.ventes.filter(function(r){return r.tour===t;})}; histoDetail(b,'Année '+y,t);
+}
+
+function casClotDone(cid){if(casCache)casCache.tours=[]; var cc=lsGet('cc:'+cid,null); if(cc){cc.tours=[]; lsSet('cc:'+cid,cc);} casHistoPanel(cid);}
+function casRefairePanel(cid){
+  if(!isCasAdmin(cid)||!fs)return; openPanel(panelHead('Refaire les tournées','')+'<p class="hint">Chargement…</p>');
+  casClotures(cid).then(function(l){
+    l=l.slice().sort(function(a,b){return b.ts-a.ts;});
+    openPanel(panelHead('Refaire les tournées','Nouvelle année')+(l.length?'<p class="hint">Choisis l\'année dont tu veux remettre toutes les tournées (mêmes rues, mêmes noms, ventes à zéro).</p>'+l.map(function(z){return '<button type="button" class="row" data-a="casrefok" data-cid="'+cid+'" data-ts="'+z.ts+'"><span class="rn">Année '+esc(z.an)+'<small>'+(z.tours||[]).map(function(e){return esc(e.nom);}).join(', ')+'</small></span><span class="rm"><b>'+(z.tours||[]).length+'</b></span></button>';}).join(''):'<p class="empty">Aucune année clôturée pour l\'instant.</p>'));
+  });
+}
+function casRefaire(cid,ts,btn){
+  if(!isCasAdmin(cid)||!fs)return; if(btn)btn.disabled=true;
+  casClotures(cid).then(function(l){
+    var z=l.filter(function(x){return String(x.ts)===String(ts);})[0]; if(!z)return;
+    return Promise.all((z.tours||[]).map(function(e){return caseDoc(cid).collection('tournees').doc(e.id).set({nom:e.nom,par:e.par||'',parNom:e.parNom||'',ts:Date.now(),encA:e.encA||null,encG:e.encG||null,adm:true});}))
+      .then(function(){toast((z.tours||[]).length+' tournée(s) remise(s) dans la caserne'); casPanel(cid);});
+  }).catch(function(){if(btn)btn.disabled=false; toast('Échec (réseau ?)');});
 }
 
 
@@ -1125,6 +1212,7 @@ function casRender(cid,tours,mem){
     if(adm&&!cs.visitor)h+='<button type="button" class="mi" data-a="newt" style="margin-top:6px">+ Créer une tournée pour la caserne</button><p class="note" style="margin:0 0 8px">Elle ne sera affectée à personne, toi compris : utilise « Affecter » ensuite.</p>';
     h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
     if(adm&&tl.length&&ml.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
+    if(adm&&!cs.visitor)h+='<div class="mg" style="margin-top:6px"><button type="button" class="mi" data-a="cashisto" data-cid="'+cid+'">Historique</button>'+(tl.length?'<button type="button" class="mi" data-a="casclot" data-cid="'+cid+'">Clôturer l\'année (toutes)</button>':'<button type="button" class="mi" data-a="casrefaire" data-cid="'+cid+'">Refaire les tournées</button>')+'</div>';
     h+='<h2>Les membres</h2>';
     h+=ml.length?ml.map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id;
       return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
@@ -1609,6 +1697,13 @@ document.addEventListener('click',function(e){
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
+  else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
+  else if(a==='casrefok'){if(armed(t,1500))casRefaire(t.dataset.cid,t.dataset.ts,t);}
+  else if(a==='cashisto')casHistoPanel(t.dataset.cid);
+  else if(a==='htour')casHistoTour(t.dataset.y,t.dataset.t);
+  else if(a==='hyear')casHistoYear(t.dataset.y);
+  else if(a==='casclot')casClotPanel(t.dataset.cid);
+  else if(a==='casclotok'){if(armed(t,1500))casClotDo(t.dataset.cid,t);}
   else if(a==='histo')histoPanel();
   else if(a==='histo1')histo1(t.dataset.ts);
   else if(a==='cloture')cloturePanel();
