@@ -9,6 +9,9 @@ service cloud.firestore {
     match /tournees/{code}/ventes/{id} {
       allow read, write: if code.matches('[A-Z0-9]{12}');
     }
+    match /tournees/{code}/pres/{id} {
+      allow read, write: if code.matches('[A-Z0-9]{12}');
+    }
     match /casernes/{cid} {
       allow get, create: if cid.matches('[a-z0-9-]{3,60}');
       allow update: if cid.matches('[a-z0-9-]{3,60}')

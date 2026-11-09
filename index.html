@@ -251,15 +251,24 @@ input[type=text]{width:100%}
 .onbbox{max-width:440px; width:100%}
 .onbbox h2{font:700 34px/1.1 var(--font-display); text-transform:uppercase; margin:0 0 10px}
 .redadm{color:var(--accent); font-weight:700}
+.dot{display:inline-block; width:12px; height:12px; border-radius:50%; background:#8d8585; margin-right:9px; vertical-align:middle; flex:none}
+.dot.on{background:#2fbf5b; box-shadow:0 0 0 3px rgba(47,191,91,.25)}
+.bdg{position:absolute; top:4px; right:-4px; min-width:22px; height:22px; padding:0 5px; border-radius:11px; background:var(--accent); color:#fff; font:700 13px/22px var(--font-body,inherit); text-align:center; z-index:3; pointer-events:none}
+.bdg.in{position:static; display:inline-block; margin-left:6px}
+.mh{font:700 15px var(--font-display); text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:20px 0 8px}
+.mg{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 8px}
+.mg .mi{margin:0}
+.mi.sm{min-height:50px; font-size:16px; padding:0 12px}
+.mdet{margin:4px 0 8px} .mdet summary{padding:12px 4px; color:var(--muted); font-weight:600}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.6</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.8</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
-  <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.6</p>
+  <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
+  <p class="sub">Calendriers des pompiers · v4.8</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -472,7 +481,7 @@ function initCloud(){
   });
 }
 function subscribe(code){
-  if(!fs||subs[code])return; var s=(subs[code]={}), mig=false; loadT(code);
+  if(!fs||subs[code])return; var s=(subs[code]={}), mig=false; loadT(code); s.p=subscribePres(code);
   s.v=colRef(code).onSnapshot(function(snap){
     var c=loadT(code), md=snap.metadata;
     if(code===T.cur&&!md.fromCache&&!md.hasPendingWrites&&navigator.onLine)setSync('ok');
@@ -497,8 +506,8 @@ function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var
 function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.config); cloudDo(function(){return docRef(code).set({cfg:s},{merge:true});});}
 
 /* gestion des tournées */
-function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Tournée calendriers'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur;}
-function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render();}
+function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Tournée calendriers'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge();}
+function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render(); setTimeout(function(){if(typeof beat==='function')beat();},50);}
 function createTour(nom,geo){
   var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
   if(fs){subscribe(code); cloudDo(function(){return docRef(code).set({nom:nom,cfg:cfgJSON(c.cfg),geo:geo?JSON.stringify(geo):null,creePar:T.me||'',creeLe:Date.now()});});}
@@ -518,7 +527,7 @@ function joinCode(raw){
 }
 function leaveTour(code,msg,forget){
   var t0=tourOf(code); T.left=T.left.filter(function(x){return x.code!==code;}); if(!forget&&t0)T.left.push({code:code,nom:t0.nom,owner:!!t0.owner}); lsSet('left',T.left);
-  var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d();} delete subs[code];
+  var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d(); if(typeof s.p==='function')s.p();} delete subs[code];
   T.list=T.list.filter(function(t){return t.code!==code;}); lsSet('list',T.list);
   try{localStorage.removeItem(LS+'t:'+code);}catch(e){} delete cache[code]; closeSheet();
   if(T.cur===code){var n=T.list[0]; if(n)setCur(n.code); else{T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); applyGeo(null); render();}} else render();
@@ -550,13 +559,22 @@ function panelHead(t,s){return '<div class="ph"><div class="tt">'+esc(t)+(s?'<sm
 function meField(){return T.me?'':'<label class="fld" for="f-me">Ton prénom (facultatif)</label><input type="text" id="f-me" autocomplete="off" placeholder="Pour voir qui a vendu">';}
 function takeMe(){var e=$('#f-me'); if(e&&e.value.trim()){T.me=e.value.trim().slice(0,30); lsSet('me',T.me);}}
 function mi(a,label,extra){return '<button type="button" class="mi" data-a="'+a+'"'+(extra||'')+'>'+label+'</button>';}
+function ms(a,label){return '<button type="button" class="mi sm" data-a="'+a+'">'+label+'</button>';}
+function mh(t){return '<p class="mh">'+t+'</p>';}
 function menuPanel(){
+  var cur=tourOf(T.cur);
   var list=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
-    return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
-  openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
-   +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
-   +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
-   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+casMenu()+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir')+(T.admin?' (administrateur)':''))+(T.admin?'<hr class="sep">'+mi('adminlist','Toutes les tournées (administrateur)')+mi('allcas','Toutes les casernes (administrateur)'):'')+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+(canDelete(tourOf(T.cur))?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
+    return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
+  var h=panelHead('Menu','')+mh('Mes tournées')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
+   +'<div class="mg">'+ms('newt','+ Nouvelle')+ms('join','Rejoindre (code)')+'</div>'
+   +(T.left.length?'<details class="mdet"><summary>Tournées quittées ('+T.left.length+')</summary>'+T.left.map(function(l){return '<button type="button" class="mi sm" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join('')+'</details>':'');
+  if(cur)h+=mh('Cette tournée : '+esc(cur.nom))+'<div class="mg">'+ms('share','Partager (QR)')+ms('rues','Rues')+ms('rename','Renommer')+ms('part','Participants')+ms('leave','Quitter')+'</div>'
+   +(canDelete(cur)?'<button type="button" class="mi sm danger" data-a="delete">Supprimer pour tout le monde</button>':'');
+  h+=casMenu();
+  var nb=unread();
+  h+=mh('Moi')+'<div class="mg">'+ms('me','Prénom : '+esc(T.me||'à choisir')+(T.admin?' (admin)':''))+ms('notifs','Notifications'+(nb?' <span class="bdg in">'+nb+'</span>':''))+'</div>';
+  if(T.admin)h+=mh('Administrateur')+'<div class="mg">'+ms('adminlist','Toutes les tournées')+ms('allcas','Toutes les casernes')+'</div>';
+  openPanel(h);
 }
 function joinPanel(){
   openPanel(panelHead('Rejoindre une tournée','Tape le code ou scanne le QR code d\'un collègue.')
@@ -655,7 +673,7 @@ function init(){
     if(ok){T.list.forEach(function(t){subscribe(t.code);}); setSync(navigator.onLine?'loading':'offline'); setTimeout(function(){if(state.sync==='loading')setSync('slow');},10000);}
     else setSync('local');
     if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
-    if(ok)checkCasExist();
+    if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid);}); startVie();}
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
   });
@@ -699,7 +717,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.6';
+var DBG=[], VERSION='4.8';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -957,20 +975,20 @@ function onbStep2(nom){
     var mid=genCode();
     return caseDoc(cid).set({nom:nom,pub:k.pub,wrap:k.wrap,creeLe:Date.now()}).then(function(){
       return caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:true});
-    }).then(function(){lsSet('ak:'+cid,b64(k.pk8)); T.cas.push({cid:cid,nom:nom,mid:mid,admin:true}); T.ccur=cid; saveCas(); var o=$('#onb'); if(o)o.remove(); toast('Caserne créée : tu en es l\'administrateur'); render();});
+    }).then(function(){lsSet('ak:'+cid,b64(k.pk8)); T.cas.push({cid:cid,nom:nom,mid:mid,admin:true}); T.ccur=cid; saveCas(); subscribeCasMem(cid); beat(); var o=$('#onb'); if(o)o.remove(); toast('Caserne créée : tu en es l\'administrateur'); render();});
   }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées.':'Création impossible (réseau ?)'+(e&&e.code?' ('+e.code+')':''));;});
 }
 function joinCaserne(cid,nom){
   var mid=genCode();
   caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:false}).then(function(){
-    T.cas.push({cid:cid,nom:nom,mid:mid,admin:false}); T.ccur=cid; saveCas(); var o=$('#onb'); if(o)o.remove(); toast('Caserne rejointe : '+nom); render();
+    T.cas.push({cid:cid,nom:nom,mid:mid,admin:false}); T.ccur=cid; saveCas(); subscribeCasMem(cid); beat(); var o=$('#onb'); if(o)o.remove(); toast('Caserne rejointe : '+nom); render();
   }).catch(function(){var b=$('#ob-go'); if(b)b.disabled=false; onbErr('Impossible de rejoindre (réseau ?).');});
 }
 
 /* ---------- casernes : écran de la caserne ---------- */
 function casMenu(){
-  var h='<hr class="sep">'+T.cas.map(function(c){return '<button type="button" class="mi" data-a="cas" data-cid="'+c.cid+'">'+esc(c.nom)+(c.cid===T.ccur?' · active':'')+(isCasAdmin(c.cid)?' (administrateur)':'')+'</button>';}).join('');
-  return h+'<button type="button" class="mi" data-a="addcas">'+(T.cas.length?'Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
+  var h=mh('Ma caserne')+T.cas.map(function(c){return '<button type="button" class="mi sm" data-a="cas" data-cid="'+c.cid+'">'+esc(c.nom)+(c.cid===T.ccur?' · active':'')+(isCasAdmin(c.cid)?' <span class="redadm">(administrateur)</span>':'')+'</button>';}).join('');
+  return h+'<button type="button" class="mi sm" data-a="addcas">'+(T.cas.length?'+ Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
 }
 function principalOf(m,tours){
   if(m.aff){var e=tours.filter(function(x){return x.id===m.aff;})[0]; if(e)return e;}
@@ -981,6 +999,7 @@ function casPanel(cid){
   T.ccur=cid; saveCas();
   var adm=isCasAdmin(cid);
   openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+(adm?' <span class="redadm">(administrateur)</span>':'')+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
+   +(!adm?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
    +(adm?'<button type="button" class="mi danger" data-a="casdel" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Supprimer cette caserne</button>':'')
    +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
   casLoad(cid);
@@ -999,7 +1018,7 @@ function casLoad(cid){
     h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
     h+='<h2>Les membres</h2>';
     h+=mem.length?mem.map(function(m){var p=principalOf(m,tours), me=cs.mid===m.id;
-      return '<div class="mc"><span class="rn">'+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&tours.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':'')+'</div>';}).join(''):'<p class="empty">Aucun membre.</p>';
+      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tours.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tours.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):'<p class="empty">Aucun membre.</p>';
     var b=$('#cas-body'); if(b)b.innerHTML=h;
     casCache={tours:tours,mem:mem};
   }).catch(function(){var b=$('#cas-body'); if(b)b.innerHTML='<p class="empty">Impossible de charger la caserne (réseau ou règles Firebase).</p>';});
@@ -1037,7 +1056,7 @@ function confirmCasDelete(cid,nom){
   d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">Supprimer la caserne ?</h3><p>« <b>'+esc(nom)+'</b> » sera supprimée <b>pour tout le monde</b> : membres et liste des tournées.</p><p>Les tournées et leurs ventes ne sont pas supprimées. Cette action est définitive.</p><button type="button" class="primary" data-a="dlgyes">Oui, supprimer</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Annuler</button></div>';
   document.body.appendChild(d);
 }
-function dropCas(cid){T.cas=T.cas.filter(function(c){return c.cid!==cid;}); if(T.ccur===cid)T.ccur=T.cas[0]?T.cas[0].cid:null; saveCas(); try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){}}
+function dropCas(cid){unsubCasMem(cid); T.cas=T.cas.filter(function(c){return c.cid!==cid;}); if(T.ccur===cid)T.ccur=T.cas[0]?T.cas[0].cid:null; saveCas(); try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){}}
 function deleteCaserne(cid){
   if(!fs||!isCasAdmin(cid)){toast('Réservé à l\'administrateur'); return;}
   var ref=caseDoc(cid);
@@ -1049,7 +1068,106 @@ function deleteCaserne(cid){
 }
 function checkCasExist(){
   if(!fs)return;
-  T.cas.slice().forEach(function(c){if(c.visitor)return; caseDoc(c.cid).get().then(function(s){if(!s.exists||(s.data()||{}).supprime){dropCas(c.cid); toast('La caserne « '+c.nom+' » a été supprimée');}}).catch(function(){});});
+  T.cas.slice().forEach(function(c){if(c.visitor)return; caseDoc(c.cid).get().then(function(s){if(!s.exists||(s.data()||{}).supprime){dropCas(c.cid); toast('La caserne « '+c.nom+' » a été supprimée');}}).catch(function(){});
+    if(c.mid&&!isCasAdmin(c.cid))caseDoc(c.cid).collection('membres').doc(c.mid).get().then(function(s){if(!s.exists&&casOf(c.cid)){caseDoc(c.cid).get().then(function(x){if(x.exists&&!(x.data()||{}).supprime){dropCas(c.cid); toast('Tu as été retiré de la caserne « '+c.nom+' »'); render();}});}}).catch(function(){});});
+}
+
+function confirmCasAct(kind,val,titre,txt){
+  var old=$('#dlg'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.dataset[kind]=val;
+  d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">'+esc(titre)+'</h3><p>'+txt+'</p><button type="button" class="primary" data-a="dlgyes">Oui, confirmer</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Annuler</button></div>';
+  document.body.appendChild(d);
+}
+function kickMember(cid,mid){
+  if(!fs||!isCasAdmin(cid))return;
+  caseDoc(cid).collection('membres').doc(mid).delete().then(function(){toast('Membre retiré'); casLoad(cid);}).catch(function(){toast('Échec (réseau ?)');});
+}
+function leaveCaserne(cid){
+  var cs=casOf(cid); if(!cs)return;
+  var done=function(){dropCas(cid); closeSheet(); toast('Tu as quitté la caserne'); render();};
+  if(fs&&cs.mid&&!isCasAdmin(cid))caseDoc(cid).collection('membres').doc(cs.mid).delete().then(done).catch(function(){toast('Échec (réseau ?)');}); else done();
+}
+
+
+/* ---------- présence (en ligne / hors ligne) et notifications ---------- */
+var PID=lsGet('pid',null); if(!PID){PID=genCode(); lsSet('pid',PID);}
+var PRES={t:{},c:{}}, NOTIFS=lsGet('notifs',[]), BEAT=120000, ONL=300000, vieOn=false;
+function isOn(seen){return !!seen&&Date.now()-seen<ONL;}
+function presDoc(code){return docRef(code).collection('pres').doc(PID);}
+function beat(off){
+  if(!fs)return; var now=off?0:Date.now();
+  if(T.cur&&tourOf(T.cur))presDoc(T.cur).set({prenom:T.me||'?',seen:now,own:!!tourOf(T.cur).owner},{merge:true}).catch(function(){});
+  T.cas.forEach(function(c){if(c.mid)caseDoc(c.cid).collection('membres').doc(c.mid).set({seen:now},{merge:true}).catch(function(){});});
+}
+function startVie(){
+  if(vieOn)return; vieOn=true; beat();
+  setInterval(function(){if(!document.hidden)beat(); updateDots();},BEAT);
+  document.addEventListener('visibilitychange',function(){beat(document.hidden); if(!document.hidden)updateDots();});
+  window.addEventListener('pagehide',function(){beat(true);});
+  setInterval(updateDots,20000);
+}
+/* notifications */
+function saveNotifs(){lsSet('notifs',NOTIFS.slice(-50));}
+function addNotif(txt){
+  NOTIFS.push({id:Date.now()+Math.random(),txt:txt,ts:Date.now(),read:false}); saveNotifs(); updateBadge(); toast(txt);
+  try{if(document.hidden&&window.Notification&&Notification.permission==='granted')new Notification('Tournée calendriers',{body:txt});}catch(e){}
+}
+function unread(){return NOTIFS.filter(function(n){return !n.read;}).length;}
+function updateBadge(){var b=$('#bdg'); if(!b)return; var n=unread(); b.hidden=!n; b.textContent=n>9?'9+':String(n);}
+function notifPanel(){
+  NOTIFS.forEach(function(n){n.read=true;}); saveNotifs(); updateBadge();
+  var rows=NOTIFS.slice().reverse().map(function(n){var d=new Date(n.ts); return '<div class="mc"><span class="rn">'+esc(n.txt)+'<small>'+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</small></span></div>';}).join('');
+  openPanel(panelHead('Notifications','Arrivées dans tes tournées et ta caserne.')+(rows||'<p class="empty">Aucune notification.</p>')+(NOTIFS.length?'<button type="button" class="mi" data-a="notclear" style="margin-top:10px">Tout effacer</button>':'')
+   +(window.Notification&&Notification.permission==='default'?'<button type="button" class="mi" data-a="notperm" style="margin-top:6px">Autoriser les alertes de l\'appareil</button>':''));
+}
+/* détection des nouveaux arrivants (même si l'appli était fermée) */
+function knownKey(k){return 'known:'+k;}
+function checkNew(k,ids,label,names,mine){
+  var kn=lsGet(knownKey(k),null);
+  if(kn===null){lsSet(knownKey(k),ids); return;}
+  var fresh=ids.filter(function(i){return kn.indexOf(i)<0;});
+  if(!fresh.length)return; lsSet(knownKey(k),kn.concat(fresh));
+  if(!mine)return;
+  fresh.forEach(function(i){if(i===PID||i===mine.selfId)return; addNotif((names[i]||'Quelqu\'un')+' a rejoint '+label);});
+}
+function subscribePres(code){
+  var first=true;
+  return docRef(code).collection('pres').onSnapshot(function(snap){
+    var m={}, ids=[], names={}; snap.docs.forEach(function(d){var x=d.data()||{}; m[d.id]=x; ids.push(d.id); names[d.id]=x.prenom;});
+    PRES.t[code]=m; var t=tourOf(code); if(t)checkNew('t:'+code,ids,'la tournée « '+t.nom+' »',names,t.owner?{selfId:PID}:null);
+    updateDots(); partRender();
+  },function(){});
+}
+function subscribeCasMem(cid){
+  var cs=casOf(cid); if(!fs||!cs||PRES['u'+cid])return;
+  PRES['u'+cid]=caseDoc(cid).collection('membres').onSnapshot(function(snap){
+    var m={}, ids=[], names={}; snap.docs.forEach(function(d){var x=d.data()||{}; m[d.id]=x; ids.push(d.id); names[d.id]=x.prenom;});
+    PRES.c[cid]=m; var c=casOf(cid); if(!c)return;
+    checkNew('c:'+cid,ids,'la caserne « '+c.nom+' »',names,(!c.visitor&&isCasAdmin(cid))?{selfId:c.mid}:null);
+    updateDots();
+  },function(){});
+}
+function unsubCasMem(cid){if(typeof PRES['u'+cid]==='function')PRES['u'+cid](); delete PRES['u'+cid]; delete PRES.c[cid];}
+/* pastilles */
+function dot(k,on){return '<i class="dot'+(on?' on':'')+'" data-k="'+k+'" role="img" aria-label="'+(on?'en ligne':'hors ligne')+'"></i>';}
+function dotState(k){
+  var p=k.split(':');
+  if(p[0]==='c'){var x=(PRES.c[p[1]]||{})[p[2]]; return !!x&&isOn(x.seen);}
+  if(p[0]==='tour'){var m=PRES.t[p[1]]||{}; return Object.keys(m).some(function(i){return i!==PID&&isOn(m[i].seen);});}
+  return false;
+}
+function updateDots(){
+  var els=document.querySelectorAll('.dot[data-k]');
+  for(var i=0;i<els.length;i++){var on=dotState(els[i].getAttribute('data-k')); els[i].classList.toggle('on',on); els[i].setAttribute('aria-label',on?'en ligne':'hors ligne');}
+}
+function partPanel(){
+  var t=tourOf(T.cur); if(!t)return;
+  openPanel(panelHead('Participants','« '+t.nom+' »')+'<div id="pp-list"></div><p class="note">Vert : actif dans les 5 dernières minutes.</p>'); partRender();
+}
+function partRender(){
+  var box=$('#pp-list'); if(!box||!T.cur)return; var m=PRES.t[T.cur]||{};
+  var ids=Object.keys(m).sort(function(a,b){return (isOn(m[b].seen)?1:0)-(isOn(m[a].seen)?1:0)||String(m[a].prenom).localeCompare(String(m[b].prenom),'fr');});
+  box.innerHTML=ids.length?ids.map(function(i){var x=m[i]; return '<div class="mc"><span class="rn">'+('<i class="dot'+(isOn(x.seen)?' on':'')+'"></i>')+esc(x.prenom||'?')+(x.own?' <span class="note" style="margin:0">· principal</span>':'')+(i===PID?' · toi':'')+'</span></div>';}).join(''):'<p class="empty">Personne pour l\'instant.</p>';
 }
 
 
@@ -1253,8 +1371,14 @@ document.addEventListener('click',function(e){
   else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; caseDoc(cid9).collection('membres').doc(t.dataset.mid).set({aff:tid9},{merge:true}).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
+  else if(a==='part'){partPanel();}
+  else if(a==='notifs'){notifPanel();}
+  else if(a==='notclear'){NOTIFS=[]; saveNotifs(); updateBadge(); notifPanel();}
+  else if(a==='notperm'){try{Notification.requestPermission().then(function(){notifPanel();});}catch(e){}}
+  else if(a==='caskick'){confirmCasAct('kick',t.dataset.cid+'|'+t.dataset.mid,'Retirer '+t.dataset.nom+' ?','« <b>'+t.dataset.nom+'</b> » sera retiré(e) de la caserne. Cette personne pourra la rejoindre de nouveau en tapant son nom.');}
+  else if(a==='casleave'){confirmCasAct('leave',t.dataset.cid,'Quitter la caserne ?','Tu ne verras plus les tournées ni les membres de « <b>'+t.dataset.nom+'</b> ». Tes tournées déjà rejointes restent dans ta liste.');}
   else if(a==='casdel'){if(armed(t,1500))confirmCasDelete(t.dataset.cid,t.dataset.nom);}
-  else if(a==='casvisit'){var cv=t.dataset.cid; if(!casOf(cv))T.cas.push({cid:cv,nom:t.dataset.nom,mid:'',admin:false,visitor:true}); T.ccur=cv; saveCas(); casPanel(cv);}
+  else if(a==='casvisit'){var cv=t.dataset.cid; if(!casOf(cv)){T.cas.push({cid:cv,nom:t.dataset.nom,mid:'',admin:false,visitor:true}); subscribeCasMem(cv);} T.ccur=cv; saveCas(); casPanel(cv);}
   else if(a==='adminlist')adminListPanel();
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
@@ -1279,7 +1403,7 @@ document.addEventListener('click',function(e){
   else if(a==='comeback'){joinCode(t.dataset.code).then(function(){toast('Tournée retrouvée');},function(m){toast(m); menuPanel();});}
   else if(a==='delete'){if(armed(t,1500))confirmDelete(T.cur);}
   else if(a==='dlgno'){var dg=$('#dlg'); if(dg)dg.remove();}
-  else if(a==='dlgyes'){var dg2=$('#dlg'); if(dg2){var dcode=dg2.dataset.code, dcas=dg2.dataset.cas; dg2.remove(); if(dcas)deleteCaserne(dcas); else deleteTour(dcode);}}
+  else if(a==='dlgyes'){var dg2=$('#dlg'); if(dg2){var dcode=dg2.dataset.code, dcas=dg2.dataset.cas; dg2.remove(); var dk=dg2.dataset.kick, dl=dg2.dataset.leave; if(dcas)deleteCaserne(dcas); else if(dk)kickMember(dk.split('|')[0],dk.split('|')[1]); else if(dl)leaveCaserne(dl); else deleteTour(dcode);}}
   else if(a==='copycode'){var ct=tourOf(T.cur); if(ct){var txt=fmtCode(ct.code); (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Code copié');},function(){toast('Code : '+txt);});}}
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
   else if(a==='save')saveSheet();
