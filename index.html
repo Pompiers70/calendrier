@@ -265,15 +265,22 @@ input[type=text]{width:100%}
 .nt2{color:var(--muted); font-size:16px; line-height:1.4; margin:0}
 .lk.dots{font-size:22px; font-weight:700; min-width:44px; padding:0 10px; letter-spacing:0}
 .cpill{display:inline-block; margin-left:8px; padding:1px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; font-weight:600; color:var(--fg); background:var(--surface); vertical-align:1px}
+.nban{position:fixed; top:max(12px,env(safe-area-inset-top)); left:50%; transform:translate(-50%,-140%); z-index:95; display:flex; align-items:center; gap:12px; width:min(calc(100% - 24px),420px); padding:12px 16px; border:0; border-radius:16px; background:#fff; color:#1b1b1b; text-align:left; box-shadow:0 8px 28px rgba(0,0,0,.28); transition:transform .35s cubic-bezier(.2,.8,.2,1); font:inherit; cursor:pointer}
+.nban.show{transform:translate(-50%,0)}
+.nbi{flex:none; width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px rgba(214,40,40,.16)}
+.nbt{display:flex; flex-direction:column; gap:2px; min-width:0}
+.nbt b{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#777; font-weight:700}
+.nbt span{font-size:16px; font-weight:600; line-height:1.25}
+@media (prefers-reduced-motion:reduce){.nban{transition:none}}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.19</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.20</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.19</p>
+  <p class="sub">Calendriers des pompiers · v4.20</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -722,7 +729,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.19';
+var DBG=[], VERSION='4.20';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1193,7 +1200,7 @@ function startVie(){
 /* notifications */
 function saveNotifs(){lsSet('notifs',NOTIFS.slice(-50));}
 function addNotif(txt){
-  NOTIFS.push({id:Date.now()+Math.random(),txt:txt,ts:Date.now(),read:false}); saveNotifs(); updateBadge(); toast(txt);
+  NOTIFS.push({id:Date.now()+Math.random(),txt:txt,ts:Date.now(),read:false}); saveNotifs(); updateBadge(); banner(txt);
   try{if(document.hidden&&window.Notification&&Notification.permission==='granted')new Notification('Tournée calendriers',{body:txt});}catch(e){}
 }
 function unread(){return NOTIFS.filter(function(n){return !n.read;}).length;}
@@ -1254,6 +1261,15 @@ function partRender(){
   var box=$('#pp-list'); if(!box||!T.cur)return; var t0=tourOf(T.cur); var m=PRES.t[T.cur]||{};
   var ids=Object.keys(m).sort(function(a,b){return (isOn(m[b].seen)?1:0)-(isOn(m[a].seen)?1:0)||String(m[a].prenom).localeCompare(String(m[b].prenom),'fr');});
   box.innerHTML=ids.length?ids.map(function(i){var x=m[i]; return '<div class="mc"><span class="rn">'+('<i class="dot'+(isOn(x.seen)?' on':'')+'"></i>')+esc(x.prenom||'?')+(x.pt&&t0&&x.pt===t0.tid?' <span class="note" style="margin:0">· principal</span>':'')+(i===PID?' · toi':'')+'</span></div>';}).join(''):'<p class="empty">Personne pour l\'instant.</p>';
+}
+
+var banTimer=null, banQ=[];
+function banner(txt){
+  var b=$('#nban');
+  if(!b){b=document.createElement('button'); b.type='button'; b.id='nban'; b.className='nban'; b.setAttribute('role','status'); b.setAttribute('aria-live','polite'); b.setAttribute('data-a','notifs'); document.body.appendChild(b);}
+  b.innerHTML='<span class="nbi" aria-hidden="true"></span><span class="nbt"><b>Nouvelle arrivée</b><span>'+esc(txt)+'</span></span>';
+  b.classList.add('show'); clearTimeout(banTimer);
+  banTimer=setTimeout(function(){b.classList.remove('show');},5500);
 }
 
 
