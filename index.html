@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.3</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.4</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.3</p>
+  <p class="sub">Calendriers des pompiers · v4.4</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -464,7 +464,7 @@ function initCloud(){
     var cfg={}, re=/(apiKey|authDomain|projectId|storageBucket|messagingSenderId|appId)\s*:\s*["']([^"']+)["']/g, m;
     while((m=re.exec(txt))){if(!cfg[m[1]])cfg[m[1]]=m[2];}
     if(!cfg.apiKey||!cfg.projectId||/REMPLACE CE TEXTE/.test(txt))return false;
-    return lib('app').then(function(){return lib('fs');}).then(function(){
+    return lib('app').then(function(){return lib('auth').catch(function(){});}).then(function(){return lib('fs');}).then(function(){
       firebase.initializeApp(cfg); fs=firebase.firestore();
       try{fs.enablePersistence({synchronizeTabs:true}).catch(function(){});}catch(e){}
       return true;
@@ -588,21 +588,33 @@ function ruesPanel(){
 function renamePanel(){var t=tourOf(T.cur); openPanel(panelHead('Renommer la tournée','')+'<form data-f="rename"><label class="fld" for="rn-nom">Nom</label><input type="text" id="rn-nom" autocomplete="off" value="'+esc(t?t.nom:'')+'"><button type="submit" class="primary">Enregistrer</button></form>');}
 var ADMIN_HASH='50b42393a019f612e9dd8f5d83b1fd135fbef4ec87ce860f022d2132d44e0dbf';
 var ADMIN_EMAIL='admin@pompiers70.fr';
+function adminErr(e){
+  var k=e&&e.code||'';
+  if(k==='auth/operation-not-allowed')return 'Dans Firebase > Authentication > Méthode de connexion, active « E-mail/Mot de passe ».';
+  if(k==='auth/user-not-found'||k==='auth/invalid-credential'||k==='auth/wrong-password'||k==='auth/invalid-login-credentials')return 'Le compte '+ADMIN_EMAIL+' n\'existe pas dans Firebase > Authentication, ou son mot de passe n\'est pas identique au code administrateur.';
+  if(k==='auth/network-request-failed')return 'Pas de connexion réseau.';
+  return 'Connexion Firebase impossible'+(k?' ('+k+')':'')+'.';
+}
 function adminLogin(pw){
   if(!fs){toast('Mode administrateur activé'); return;}
-  lib('auth').then(function(){return firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,pw);}).then(function(){toast('Mode administrateur activé (connecté)');}).catch(function(){toast('Mode administrateur activé, mais la connexion Firebase a échoué');});
+  lib('auth').then(function(){return firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,pw);}).then(function(){toast('Mode administrateur activé (connecté)');}).catch(function(e){alert2(adminErr(e));});
 }
+function alert2(m){var old=$('#dlg'); if(old)old.remove(); var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true"><h3>Mode administrateur</h3><p>Le code est bon, mais la connexion Firebase a échoué.</p><p>'+esc(m)+'</p><button type="button" class="primary" data-a="dlgno">OK</button></div>'; document.body.appendChild(d);}
+function adminReady(){
+  return lib('auth').then(function(){return new Promise(function(res){var u=firebase.auth().onAuthStateChanged(function(x){u(); res(x);});});}).then(function(u){if(!u){var e=new Error('noauth'); e.code='noauth'; throw e;}});
+}
+function adminDenied(e){return e&&(e.code==='noauth'?'Tu n\'es plus connecté à Firebase en administrateur. Va dans le menu > Mon prénom, retape le code administrateur et enregistre.':(e.code==='permission-denied'?'Accès refusé par Firebase : publie les dernières règles (regles-firestore.txt) puis réessaie.':'Impossible de charger (réseau ?).'));}
 function adminOut(){try{if(window.firebase&&firebase.auth)firebase.auth().signOut();}catch(e){}}
 function adminListPanel(){
   openPanel(panelHead('Toutes les tournées','Mode administrateur : touche une tournée pour la rejoindre.')+'<p class="hint" id="al-st">Chargement…</p><div id="al-list"></div>');
   if(!fs){$('#al-st').textContent='Synchronisation non activée.'; return;}
-  lib('auth').then(function(){return fs.collection('tournees').get();}).then(function(snap){
+  adminReady().then(function(){return fs.collection('tournees').get();}).then(function(snap){
     var rows=[]; snap.docs.forEach(function(d){var x=d.data()||{}; if(x.supprime)return; rows.push({code:d.id,nom:x.nom||'Tournée',par:x.creePar||''});});
     rows.sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     var st=$('#al-st'), box=$('#al-list'); if(!st)return;
     st.textContent=rows.length?pl(rows.length,'tournée','tournées'):'Aucune tournée.';
     box.innerHTML=rows.map(function(r){var mine=!!tourOf(r.code); return '<button type="button" class="row" data-a="adminjoin" data-code="'+r.code+'"><span class="rn">'+esc(r.nom)+'<small>'+(r.par?'par '+esc(r.par)+' · ':'')+fmtCode(r.code)+(mine?' · déjà dans ta liste':'')+'</small></span><span class="rm">'+(mine?'Ouvrir':'Rejoindre')+'</span></button>';}).join('');
-  }).catch(function(e){var st=$('#al-st'); if(st)st.textContent=(e&&e.code==='permission-denied')?'Accès refusé : la connexion administrateur Firebase n\'est pas configurée (voir les explications), ou la session a expiré. Désactive puis réactive le mode administrateur.':'Impossible de charger la liste (réseau ?).';});
+  }).catch(function(e){var st=$('#al-st'); if(st)st.textContent=adminDenied(e);});
 }
 function adminTry(code){
   var v=String(code).trim();
@@ -686,7 +698,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.3';
+var DBG=[], VERSION='4.4';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1011,11 +1023,11 @@ function casUnlock(cid,pw){
 function allCasPanel(){
   openPanel(panelHead('Toutes les casernes','Mode administrateur')+'<p class="hint" id="ac-st">Chargement…</p><div id="ac-list"></div>');
   if(!fs)return;
-  lib('auth').then(function(){return fs.collection('casernes').get();}).then(function(snap){
+  adminReady().then(function(){return fs.collection('casernes').get();}).then(function(snap){
     var rows=snap.docs.map(function(d){return {cid:d.id,nom:(d.data()||{}).nom||d.id};}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     var st=$('#ac-st'); if(!st)return; st.textContent=rows.length?pl(rows.length,'caserne','casernes'):'Aucune caserne.';
     $('#ac-list').innerHTML=rows.map(function(r){return '<div class="mc"><button type="button" class="row" data-a="casvisit" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'" style="flex:1"><span class="rn">'+esc(r.nom)+'</span><span class="rm">Ouvrir</span></button><button type="button" class="lk" data-a="casdel" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'" style="color:var(--accent)">Supprimer</button></div>';}).join('');
-  }).catch(function(e){var st=$('#ac-st'); if(st)st.textContent=(e&&e.code==='permission-denied')?'Accès refusé : vérifie la connexion administrateur Firebase et les règles.':'Impossible de charger (réseau ?).';});
+  }).catch(function(e){var st=$('#ac-st'); if(st)st.textContent=adminDenied(e);});
 }
 
 function confirmCasDelete(cid,nom){
