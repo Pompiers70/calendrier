@@ -456,6 +456,7 @@ function subscribe(code){
   s.d=docRef(code).onSnapshot(function(sn){
     var c=loadT(code), t=tourOf(code);
     if(sn.exists){var d=sn.data()||{};
+      if(d.supprime){if(t)leaveTour(code,'Cette tournée a été supprimée'); return;}
       if(d.nom&&t&&t.nom!==d.nom){t.nom=d.nom; lsSet('list',T.list); drawHeader();}
       if(typeof d.cfg==='string'||typeof d.geo==='string'){try{var cfg=typeof d.cfg==='string'?Object.assign(defCfg(),JSON.parse(d.cfg)):c.cfg; var old=c.cfg.geo; cfg.geo=typeof d.geo==='string'?JSON.parse(d.geo):old; c.cfg=cfg; if(code===T.cur){state.config=cfg; if(cfg.geo!==old||JSON.stringify(old)!==JSON.stringify(cfg.geo))applyGeo(cfg);} saveT(code); if(code===T.cur)requestRender();}catch(e){}}
     }else if(!sn.metadata.fromCache&&t){cloudDo(function(){return docRef(code).set({nom:t.nom,cfg:cfgJSON(c.cfg),geo:c.cfg.geo?JSON.stringify(c.cfg.geo):null,creeLe:Date.now()});});}
@@ -481,16 +482,24 @@ function joinCode(raw){
     if(!fs)return rej('La synchronisation n\'est pas activée dans cette appli.');
     docRef(code).get().then(function(s){
       if(!s.exists)return rej('Code inconnu. Vérifie les lettres et les chiffres.');
-      var d=s.data()||{}; T.list.push({code:code,nom:d.nom||'Tournée'}); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
+      var d=s.data()||{}; if(d.supprime)return rej('Cette tournée a été supprimée.'); T.list.push({code:code,nom:d.nom||'Tournée'}); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
     }).catch(function(){rej('Impossible de vérifier le code. Vérifie ta connexion.');});
   });
 }
-function leaveTour(code){
+function leaveTour(code,msg){
   var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d();} delete subs[code];
   T.list=T.list.filter(function(t){return t.code!==code;}); lsSet('list',T.list);
   try{localStorage.removeItem(LS+'t:'+code);}catch(e){} delete cache[code]; closeSheet();
   if(T.cur===code){var n=T.list[0]; if(n)setCur(n.code); else{T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); applyGeo(null); render();}} else render();
-  toast('Tournée quittée');
+  toast(msg||'Tournée quittée');
+}
+function deleteTour(code){
+  var t=tourOf(code); if(!t)return;
+  if(!fs){leaveTour(code,'Tournée supprimée'); return;}
+  toast('Suppression…');
+  docRef(code).set({supprime:true},{merge:true}).then(function(){return colRef(code).get();}).then(function(snap){
+    return Promise.all(snap.docs.map(function(d){return colRef(code).doc(d.id).delete();}));
+  }).then(function(){leaveTour(code,'Tournée supprimée pour tout le monde');}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
 }
 function toggleRue(id,on){
   var all=allStreets().map(function(s){return s.id;}), cur=(state.config.rues||all).slice(), i=cur.indexOf(id);
@@ -510,7 +519,7 @@ function menuPanel(){
   openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
    +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
-   +'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir'))+(T.cur?mi('leave','Quitter cette tournée'):''));
+   +'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir'))+(T.cur?mi('leave','Quitter cette tournée (elle reste pour les autres)')+mi('delete','Supprimer cette tournée pour tout le monde'):''));
 }
 function joinPanel(){
   openPanel(panelHead('Rejoindre une tournée','Tape le code ou scanne le QR code d\'un collègue.')
@@ -644,12 +653,20 @@ function banDep(code){
       return pump();});}
     return pump();});
 }
+var GEOC=['https://data.geopf.fr/geocodage/search/','https://api-adresse.data.gouv.fr/search/'];
+function geoQ(q,code,type,lim){
+  function at(i){return fetchJ(GEOC[i]+'?q='+encodeURIComponent(q)+'&citycode='+code+'&type='+type+'&limit='+lim,12000).then(function(r){return r.json();}).catch(function(e){if(i+1<GEOC.length)return at(i+1); throw e;});}
+  return at(0).then(function(j){return j.features||[];});
+}
 function banApi(code){
-  var qs=['rue','chemin','impasse','route','allee','place','lotissement','les','la','le','du','de','des','sur','aux','en','pres','grande','1','2','3','4','5','6','7','8','9'], out=[], i=0;
-  function one(q){return fetchJ('https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(q)+'&citycode='+code+'&type=housenumber&limit=100',12000).then(function(r){return r.json();}).then(function(j){
-    (j.features||[]).forEach(function(f){var p=f.properties||{}, g=f.geometry&&f.geometry.coordinates; if(!g||!p.street||!p.housenumber)return; out.push({v:p.street,n:normNum(String(p.housenumber).replace(/^(\d+)(bis|ter|quater)$/i,'$1 $2')),lat:g[1],lon:g[0]});});}).catch(function(){});}
-  function worker(){if(i>=qs.length)return Promise.resolve(); return one(qs[i++]).then(worker);}
-  return Promise.all([worker(),worker(),worker(),worker()]).then(function(){out.partial=true; return out;});
+  var out=[], names={}, fails=0;
+  function pool(list,fn,n){var i=0; function w(){if(i>=list.length)return Promise.resolve(); return fn(list[i++]).then(w);} var ws=[]; for(var k=0;k<n;k++)ws.push(w()); return Promise.all(ws);}
+  function addHN(f){var p=f.properties||{}, g=f.geometry&&f.geometry.coordinates; if(!g||!p.street||!p.housenumber)return; names[norm(p.street)]=p.street; out.push({v:p.street,n:normNum(String(p.housenumber).replace(/^(\d+)(bis|ter|quater)$/i,'$1 $2')),lat:g[1],lon:g[0]});}
+  var seeds=['rue','chemin','impasse','route','allee','place','lotissement','les','la','le','du','de','des','sur','aux','en','pres','grande','petite','haut','bas','pont','eglise','mairie','1','2','3','4','5','6','7','8','9'];
+  return pool(seeds,function(q){return geoQ(q,code,'street',50).then(function(l){l.forEach(function(f){var p=f.properties||{}; var nm=p.street||p.name; if(nm)names[norm(nm)]=nm;});}).catch(function(){fails++;});},4)
+  .then(function(){return pool(seeds.slice(0,9),function(q){return geoQ(q,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){fails++;});},4);})
+  .then(function(){var list=Object.keys(names).map(function(k){return names[k];}); return pool(list,function(nm){return geoQ(nm,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){fails++;});},5);})
+  .then(function(){if(!out.length)throw new Error('vide'); out.partial=true; return out;});
 }
 function loadAddresses(code){
   return banCommune('https://plateforme.adresse.data.gouv.fr/ban/communes/'+code+'/download/csv-bal/adresses',9000,code)
@@ -906,6 +923,7 @@ document.addEventListener('click',function(e){
   else if(a==='allrues'){state.config.rues=null; putCfg(); ruesPanel();}
   else if(a==='norues'){state.config.rues=[]; putCfg(); ruesPanel();}
   else if(a==='leave'){if(armed(t))leaveTour(T.cur);}
+  else if(a==='delete'){if(armed(t))deleteTour(T.cur);}
   else if(a==='copycode'){var ct=tourOf(T.cur); if(ct){var txt=fmtCode(ct.code); (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Code copié');},function(){toast('Code : '+txt);});}}
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
   else if(a==='save')saveSheet();
