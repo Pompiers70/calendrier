@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.0</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.1</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.0</p>
+  <p class="sub">Calendriers des pompiers · v4.1</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -685,7 +685,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.0';
+var DBG=[], VERSION='4.1';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -915,7 +915,7 @@ function onbShow(){
   var d=document.createElement('div'); d.id='onb'; d.className='onb';
   d.innerHTML='<div class="onbbox"><h2>Bienvenue</h2><p class="hint" style="font-size:17px">Indique ton prénom et ta caserne. Tu verras les tournées de ton centre.</p>'
    +'<form data-f="onb1"><label class="fld" for="ob-me">Ton prénom</label><input type="text" id="ob-me" autocomplete="off" value="'+esc(T.me)+'">'
-   +'<label class="fld" for="ob-cas">Ta caserne</label><input type="text" id="ob-cas" autocomplete="off" placeholder="Ex. : CPI Esprels, CI Villers-Excel, CIP Lure">'
+   +'<label class="fld" for="ob-cas">Ta caserne</label><input type="text" id="ob-cas" autocomplete="off" placeholder="Ex. : CPI Esprels, CI Villersexel, CIP Lure">'
    +'<p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Continuer</button></form>'
    +'<button type="button" class="mi" data-a="onbskip" style="margin-top:12px">Passer pour l\'instant</button></div>';
   document.body.appendChild(d);
