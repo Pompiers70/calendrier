@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.24</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.25</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.24</p>
+  <p class="sub">Calendriers des pompiers · v4.25</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -584,6 +584,7 @@ function menuPanel(){
    +'<div class="mg">'+ms('newt','+ Nouvelle')+ms('join','Rejoindre (code)')+'</div>'
    +(T.left.length?mh('Tournées quittées')+T.left.map(function(l){return '<button type="button" class="mi sm" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'');
   if(cur)h+=mh('Cette tournée : '+esc(cur.nom))+'<div class="mg">'+ms('share','Partager (QR)')+ms('rues','Rues')+ms('rename','Renommer')+ms('part','Participants')+ms('leave','Quitter')+'</div>'
+   +(canArchive()?'<div class="mg">'+ms('histo','Historique')+ms('cloture','Clôturer l\'année')+'</div>':'')
    +(canDelete(cur)?'<button type="button" class="mi sm danger" data-a="delete">Supprimer pour tout le monde</button>':'');
   h+=casMenu();
   var nb=unread();
@@ -732,7 +733,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.24';
+var DBG=[], VERSION='4.25';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -954,6 +955,46 @@ function recapOne(rows){
   rows.push(['Total chèques',use.length,f(tc/100)]);
   if(ck.n){rows.push(['Chèques enregistrés dans les ventes',L.length,f(ex.cheque/100)]); rows.push(['Écart chèques','',f((ck.t-ex.cheque)/100)]);}
   if(cash>0||ck.n){rows.push(['TOTAL COMPTÉ','',f((cash+ck.t)/100)]); rows.push(['TOTAL ENREGISTRÉ','',f((ex.cash+ex.cheque+ex.nd)/100)]); rows.push(['ÉCART TOTAL','',f((cash+ck.t-ex.cash-ex.cheque-ex.nd)/100)]);}
+}
+
+/* ---------- clôture de l'année & historique (admins de la caserne) ---------- */
+function canArchive(){var cur=T.list.filter(function(x){return x.code===T.cur;})[0]; return !!(cur&&cur.cid&&isCasAdmin(cur.cid));}
+function archList(){return (state.config.archives||[]).slice().sort(function(a,b){return b.ts-a.ts;});}
+function archSum(a){var s={nb:0,tot:0,esp:0,chq:0,par:{}}; (a.ventes||[]).forEach(function(r){if(r.statut!=='vendu')return; var m=Math.round((+r.montant||0)*100), n=parOf(r); s.nb++; s.tot+=m; if(r.paiement==='cheque')s.chq+=m; else s.esp+=m; var p=s.par[n]||(s.par[n]={nb:0,tot:0}); p.nb++; p.tot+=m;}); return s;}
+function cloturePanel(){
+  if(!canArchive())return;
+  var nb=Object.keys(state.ventes).length, y=new Date().getFullYear();
+  openPanel(panelHead('Clôturer l\'année','')
+   +'<p class="hint">Les '+nb+' passage'+(nb>1?'s':'')+' de cette tournée sont rangés dans l\'historique (avec le prénom de chaque vendeur), puis la tournée repart à zéro.</p>'
+   +'<p class="hint">Les noms déjà saisis et les numéros ajoutés sont conservés pour l\'an prochain.</p>'
+   +'<label class="lbl" for="cl-an">Année</label><input id="cl-an" type="text" inputmode="numeric" value="'+y+'" style="width:100%;font-size:20px;min-height:52px">'
+   +'<button type="button" class="btn red" data-a="clotureok" style="width:100%;margin-top:14px;min-height:58px">Clôturer l\'année</button>');
+}
+function clotureDo(){
+  if(!canArchive())return;
+  var an=($('#cl-an')&&$('#cl-an').value||'').trim()||String(new Date().getFullYear());
+  var vs=Object.keys(state.ventes).map(function(k){return state.ventes[k];});
+  if(!vs.length){toast('Rien à clôturer'); return;}
+  var arch=(state.config.archives||[]).slice(); arch.push({an:an,ts:Date.now(),par:T.me||'',ventes:vs});
+  state.config.archives=arch; state.config.caisse=null; CP=null;
+  var ids=Object.keys(state.ventes); state.ventes={}; saveLocal();
+  var code=T.cur, s=cfgJSON(state.config);
+  cloudDo(function(){return docRef(code).set({cfg:s},{merge:true}).then(function(){return Promise.all(ids.map(function(id){return colRef(code).doc(id).delete();}));});});
+  requestRender(); toast('Année '+an+' clôturée'); histoPanel();
+}
+function histoPanel(){
+  if(!canArchive())return;
+  var l=archList();
+  openPanel(panelHead('Historique','')+(l.length?l.map(function(a){var s=archSum(a); return '<button type="button" class="row" data-a="histo1" data-ts="'+a.ts+'"><span class="rn">Année '+esc(a.an)+'<small>'+s.nb+' vente'+(s.nb>1?'s':'')+' · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</small></span><span class="rm"><b>'+eur(s.tot/100)+'</b></span></button>';}).join(''):'<p class="empty">Aucune année clôturée pour l\'instant.</p>'));
+}
+function histo1(ts){
+  var a=archList().filter(function(x){return String(x.ts)===String(ts);})[0]; if(!a)return;
+  var s=archSum(a);
+  var h=panelHead('Année '+a.an,'')+'<p class="hint"><b>'+eur(s.tot/100)+'</b> · '+s.nb+' ventes · espèces '+eur(s.esp/100)+' · chèques '+eur(s.chq/100)+'</p><h3 class="ch3">Par vendeur</h3>'
+   +Object.keys(s.par).sort().map(function(n){return '<div class="row"><span class="rn">'+esc(n)+'<small>'+s.par[n].nb+' vente'+(s.par[n].nb>1?'s':'')+'</small></span><span class="rm"><b>'+eur(s.par[n].tot/100)+'</b></span></div>';}).join('')
+   +'<h3 class="ch3">Par maison</h3>'
+   +a.ventes.filter(function(r){return r.statut==='vendu';}).sort(function(x,y){return (x.rueNom||x.rue||'').localeCompare(y.rueNom||y.rue||'','fr')||(parseInt(x.numero)||0)-(parseInt(y.numero)||0);}).map(function(r){return '<div class="row"><span class="rn">'+esc((r.numero||'')+' '+(r.rueNom||r.rue||''))+'<small>'+esc(r.nom||'—')+' · vendu par '+esc(parOf(r))+' · '+(r.paiement==='cheque'?'chèque':'espèces')+'</small></span><span class="rm"><b>'+eur((+r.montant||0))+'</b></span></div>';}).join('');
+  openPanel(h);
 }
 
 
@@ -1560,6 +1601,10 @@ document.addEventListener('click',function(e){
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
+  else if(a==='histo')histoPanel();
+  else if(a==='histo1')histo1(t.dataset.ts);
+  else if(a==='cloture')cloturePanel();
+  else if(a==='clotureok'){if(armed(t,1500))clotureDo();}
   else if(a==='cmode'){cai0().mode=t.dataset.v; saveCaisse(); caissePanel();}
   else if(a==='cwho'){CP=t.dataset.n; var c9=cai0(); c9.mode='chacun'; saveCaisse(); caissePanel();}
   else if(a==='cinc'||a==='cdec'){var cc3=cai(), dd=t.dataset.d, nn=(cc3.n[dd]||0)+(a==='cinc'?1:-1); cc3.n[dd]=Math.max(0,nn); caisseUpdate(); saveCaisse();}
