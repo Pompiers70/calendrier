@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.25</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.26</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.25</p>
+  <p class="sub">Calendriers des pompiers · v4.26</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -733,7 +733,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.25';
+var DBG=[], VERSION='4.26';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -841,13 +841,21 @@ function newPanel(){
    +'<button type="button" class="mi" data-a="presetcrev" style="margin-top:14px">Crevans et La Chapelle (déjà prêt)</button>');
 }
 function ntRefresh(){var s=$('#nt-sel'); if(s)s.innerHTML=selChips(); var n=$('#nt-nom'); if(n&&!NT.edited)n.value=defName(); NT.g=null; var sc=$('#nt-sec'); if(sc){var real=NT.sel.filter(function(c){return c.code;}); sc.innerHTML=real.length?'<label class="cb" style="margin:6px 0 10px"><input type="checkbox" data-a="secchk" id="nt-secchk"><span class="box">✕</span><span>Choisir seulement certaines rues (secteur)</span></label><div id="nt-seclist"></div>':'';}}
+function usedStreets(){
+  var m={}; if(!T.ccur)return m;
+  T.list.forEach(function(t){ if(t.cid!==T.ccur)return; var g; try{g=loadT(t.code).cfg.geo;}catch(x){} if(!g||!g.streets)return;
+    g.streets.forEach(function(s){var k=(s.nom||'')+'|'+(s.v||''); if(!m[k])m[k]=t.nom;}); });
+  return m;
+}
 function ntSecLoad(){
   var box=$('#nt-seclist'); if(!box)return; var sel=NT.sel.filter(function(c){return c.code;});
   box.innerHTML='<p class="hint">Chargement des rues…</p>';
   Promise.all(sel.map(function(c){return loadAddresses(c.code).catch(function(){return [];});})).then(function(lists){
     var g=buildGeo(sel,lists); NT.g=g; var b=$('#nt-seclist'); if(!b)return;
+    var used=usedStreets(), nu=g.streets.filter(function(s){return used[(s.nom||'')+'|'+(s.v||'')];}).length;
     b.innerHTML='<div class="dz" style="margin:0 0 10px"><button type="button" class="ghost" data-a="secall">Tout cocher</button><button type="button" class="ghost" data-a="secnone">Tout décocher</button></div>'
-     +g.streets.map(function(s){return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" name="secst" value="'+esc(s.id)+'" checked><span class="box">✕</span><span>'+esc(s.nom)+(g.villages.length>1?' <small>· '+esc(s.v)+'</small>':'')+'</span></label>';}).join('');
+     +(nu?'<p class="hint" style="margin:0 0 10px;color:var(--accent)">⚠ '+nu+' rue'+(nu>1?'s sont':' est')+' déjà dans un autre secteur de ta caserne (indiqué en rouge). Décoche-'+(nu>1?'les':'la')+' pour éviter les doublons.</p>':'')
+     +g.streets.map(function(s){var u=used[(s.nom||'')+'|'+(s.v||'')]; return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" name="secst" value="'+esc(s.id)+'" checked><span class="box">✕</span><span>'+esc(s.nom)+(g.villages.length>1?' <small>· '+esc(s.v)+'</small>':'')+(u?' <small style="color:var(--accent);font-weight:700">· déjà dans « '+esc(u)+' »</small>':'')+'</span></label>';}).join('');
   });
 }
 function ntSearch(q){
