@@ -260,15 +260,18 @@ input[type=text]{width:100%}
 .mg .mi{margin:0}
 .mi.sm{min-height:50px; font-size:16px; padding:0 12px}
 .mdet{margin:4px 0 8px} .mdet summary{padding:12px 4px; color:var(--muted); font-weight:600}
+.nots{text-align:center; margin:18px 4px 22px}
+.nt1{font:600 19px/1.3 var(--font-body,inherit); margin:0 0 6px}
+.nt2{color:var(--muted); font-size:16px; line-height:1.4; margin:0}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.10</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.11</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.10</p>
+  <p class="sub">Calendriers des pompiers · v4.11</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -506,7 +509,7 @@ function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var
 function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.config); cloudDo(function(){return docRef(code).set({cfg:s},{merge:true});});}
 
 /* gestion des tournées */
-function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Tournée calendriers'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge();}
+function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Aucune tournée affectée'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge();}
 function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render(); setTimeout(function(){if(typeof beat==='function')beat();},50);}
 function createTour(nom,geo){
   var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
@@ -530,7 +533,7 @@ function leaveTour(code,msg,forget){
   var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d(); if(typeof s.p==='function')s.p();} delete subs[code];
   T.list=T.list.filter(function(t){return t.code!==code;}); lsSet('list',T.list);
   try{localStorage.removeItem(LS+'t:'+code);}catch(e){} delete cache[code]; closeSheet();
-  if(T.cur===code){var n=T.list[0]; if(n)setCur(n.code); else{T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); applyGeo(null); render();}} else render();
+  if(T.cur===code){T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); state.street=null; applyGeo(null); render();} else render();
   toast(msg||'Tournée quittée');
 }
 function confirmDelete(code){
@@ -641,7 +644,7 @@ function adminTry(code){
   unwrapPriv(GLOBAL_WRAP,v).then(function(pk8){lsSet('gk',b64(pk8)); T.admin=true; lsSet('admin',true); adminLogin(v);}).catch(function(){toast('Code administrateur incorrect');});
 }
 function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
-function welcomeHTML(){return '<h2 style="margin-top:20px">Bienvenue</h2><p class="hint" style="font-size:17px">Une tournée, c\'est une liste de rues et des ventes partagées entre ceux qui ont son code.</p><button type="button" class="primary" data-a="newt">Créer ma tournée</button><button type="button" class="btn" data-a="join" style="width:100%;margin-top:12px;min-height:58px">J\'ai un code ou un QR code</button>';}
+function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button><button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
 
@@ -717,7 +720,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.10';
+var DBG=[], VERSION='4.11';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
