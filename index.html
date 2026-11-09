@@ -224,14 +224,22 @@ input[type=text]{width:100%}
 .chips2{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
 .chip2{display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 6px 0 14px; border:2px solid var(--accent); border-radius:22px; font-weight:600}
 .chip2 button{width:36px; height:36px; border:0; background:none; font-size:18px}
+.mi.danger{color:var(--accent); border-color:var(--accent)}
+#splash{position:fixed; inset:0; z-index:100; background:#C4201A; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .45s ease; padding:24px}
+#splash.out{opacity:0; pointer-events:none}
+#splash img{border-radius:28px; box-shadow:0 8px 30px rgba(0,0,0,.35)}
+#splash .sp-t{text-align:center; font:700 26px var(--font-display); text-transform:uppercase; letter-spacing:.05em; margin:22px 0 0}
+#splash .sp-b{position:absolute; left:0; right:0; bottom:calc(26px + env(safe-area-inset-bottom)); text-align:center; font-size:14px; margin:0; opacity:.9}
+@media (prefers-reduced-motion:no-preference){#splash img{animation:pop .6s ease-out}@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:none;opacity:1}}}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.4</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers</p>
+  <p class="sub">Calendriers des pompiers · v3.4</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -393,7 +401,7 @@ window.addEventListener('resize',function(){if(state.view==='carte')mapDraw();})
 var LS='cal2:';
 function lsGet(k,d){try{var v=localStorage.getItem(LS+k); return v?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v));}catch(e){}}
-var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me','')};
+var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me',''),left:lsGet('left',[])};
 var cache={},subs={},fs=null,scanSt={stream:null,timer:0,on:false},scriptP={};
 var SYNC_TXT={loading:'Connexion à la tournée…',local:'Synchronisation non activée : ventes enregistrées sur ce téléphone seulement',ok:'Synchronisé avec la tournée',slow:'Connexion lente : les données ne sont peut-être pas à jour',err:'Envoi impossible pour l\'instant, réessaie',perm:'Firebase refuse l\'accès : vérifie que les règles sont bien publiées',offline:'Hors connexion : tes ventes partiront dès que le réseau revient'};
 function setSync(s){state.sync=s; var e=$('#sync'); if(e)e.textContent=T.cur?(SYNC_TXT[s]||''):'';}
@@ -456,7 +464,7 @@ function subscribe(code){
   s.d=docRef(code).onSnapshot(function(sn){
     var c=loadT(code), t=tourOf(code);
     if(sn.exists){var d=sn.data()||{};
-      if(d.supprime){if(t)leaveTour(code,'Cette tournée a été supprimée'); return;}
+      if(d.supprime){if(t)leaveTour(code,'Cette tournée a été supprimée',true); return;}
       if(d.nom&&t&&t.nom!==d.nom){t.nom=d.nom; lsSet('list',T.list); drawHeader();}
       if(typeof d.cfg==='string'||typeof d.geo==='string'){try{var cfg=typeof d.cfg==='string'?Object.assign(defCfg(),JSON.parse(d.cfg)):c.cfg; var old=c.cfg.geo; cfg.geo=typeof d.geo==='string'?JSON.parse(d.geo):old; c.cfg=cfg; if(code===T.cur){state.config=cfg; if(cfg.geo!==old||JSON.stringify(old)!==JSON.stringify(cfg.geo))applyGeo(cfg);} saveT(code); if(code===T.cur)requestRender();}catch(e){}}
     }else if(!sn.metadata.fromCache&&t){cloudDo(function(){return docRef(code).set({nom:t.nom,cfg:cfgJSON(c.cfg),geo:c.cfg.geo?JSON.stringify(c.cfg.geo):null,creeLe:Date.now()});});}
@@ -470,7 +478,7 @@ function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.
 function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Crevans · La Chapelle-lès-Granges'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur;}
 function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render();}
 function createTour(nom,geo){
-  var code=genCode(); T.list.push({code:code,nom:nom}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
+  var code=genCode(); T.list.push({code:code,nom:nom,owner:true}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
   if(fs){subscribe(code); cloudDo(function(){return docRef(code).set({nom:nom,cfg:cfgJSON(c.cfg),geo:geo?JSON.stringify(geo):null,creeLe:Date.now()});});}
   saveT(code); setCur(code); return code;
 }
@@ -482,11 +490,12 @@ function joinCode(raw){
     if(!fs)return rej('La synchronisation n\'est pas activée dans cette appli.');
     docRef(code).get().then(function(s){
       if(!s.exists)return rej('Code inconnu. Vérifie les lettres et les chiffres.');
-      var d=s.data()||{}; if(d.supprime)return rej('Cette tournée a été supprimée.'); T.list.push({code:code,nom:d.nom||'Tournée'}); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
+      var d=s.data()||{}; if(d.supprime){T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); return rej('Cette tournée a été supprimée.');} var lf=T.left.filter(function(x){return x.code===code;})[0]; T.list.push({code:code,nom:d.nom||(lf&&lf.nom)||'Tournée',owner:!!(lf&&lf.owner)}); T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
     }).catch(function(){rej('Impossible de vérifier le code. Vérifie ta connexion.');});
   });
 }
-function leaveTour(code,msg){
+function leaveTour(code,msg,forget){
+  var t0=tourOf(code); T.left=T.left.filter(function(x){return x.code!==code;}); if(!forget&&t0)T.left.push({code:code,nom:t0.nom,owner:!!t0.owner}); lsSet('left',T.left);
   var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d();} delete subs[code];
   T.list=T.list.filter(function(t){return t.code!==code;}); lsSet('list',T.list);
   try{localStorage.removeItem(LS+'t:'+code);}catch(e){} delete cache[code]; closeSheet();
@@ -494,12 +503,12 @@ function leaveTour(code,msg){
   toast(msg||'Tournée quittée');
 }
 function deleteTour(code){
-  var t=tourOf(code); if(!t)return;
-  if(!fs){leaveTour(code,'Tournée supprimée'); return;}
+  var t=tourOf(code); if(!t||!t.owner)return;
+  if(!fs){leaveTour(code,'Tournée supprimée',true); return;}
   toast('Suppression…');
   docRef(code).set({supprime:true},{merge:true}).then(function(){return colRef(code).get();}).then(function(snap){
     return Promise.all(snap.docs.map(function(d){return colRef(code).doc(d.id).delete();}));
-  }).then(function(){leaveTour(code,'Tournée supprimée pour tout le monde');}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
+  }).then(function(){leaveTour(code,'Tournée supprimée pour tout le monde',true);}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
 }
 function toggleRue(id,on){
   var all=allStreets().map(function(s){return s.id;}), cur=(state.config.rues||all).slice(), i=cur.indexOf(id);
@@ -519,7 +528,7 @@ function menuPanel(){
   openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
    +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
-   +'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir'))+(T.cur?mi('leave','Quitter cette tournée (elle reste pour les autres)')+mi('delete','Supprimer cette tournée pour tout le monde'):''));
+   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir'))+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+((tourOf(T.cur)||{}).owner?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
 }
 function joinPanel(){
   openPanel(panelHead('Rejoindre une tournée','Tape le code ou scanne le QR code d\'un collègue.')
@@ -623,7 +632,8 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok)throw new Error('http'+r.status); return r;},function(e){clearTimeout(t); throw e;});}
+var DBG=[], VERSION='3.4';
+function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 function searchCommunes(q){return fetchJ('https://geo.api.gouv.fr/communes?nom='+encodeURIComponent(q)+'&codeDepartement=70&fields=nom,code,centre,codesPostaux&boost=population&limit=8',10000).then(function(r){return r.json();});}
 function csvCtx(code){return {h:null,out:[],code:code};}
 function csvLine(line,x){
@@ -694,7 +704,7 @@ function newPanel(){
   openPanel(panelHead('Nouvelle tournée','Cherche le village : les rues et les numéros sont récupérés automatiquement.')
    +'<form data-f="newt"><label class="fld" for="nt-q">Village (Haute-Saône)</label><input type="text" id="nt-q" autocomplete="off" placeholder="Ex. : Vesoul, Gray, Luxeuil…"><div id="nt-res"></div><div id="nt-sel" class="chips2"></div>'
    +'<label class="fld" for="nt-nom">Nom de la tournée</label><input type="text" id="nt-nom" autocomplete="off" value="'+esc(defName())+'">'+meField()
-   +'<p class="err" id="nt-err" role="alert"></p><p class="hint" id="nt-st" role="status"></p><button type="submit" class="primary" id="nt-go" style="margin-top:6px">Créer la tournée</button></form>'
+   +'<p class="err" id="nt-err" role="alert"></p><p class="hint" id="nt-st" role="status"></p><p class="note" id="nt-dbg"></p><button type="submit" class="primary" id="nt-go" style="margin-top:6px">Créer la tournée</button></form>'
    +'<button type="button" class="mi" data-a="presetcrev" style="margin-top:14px">Crevans et La Chapelle (déjà prêt)</button>');
 }
 function ntRefresh(){var s=$('#nt-sel'); if(s)s.innerHTML=selChips(); var n=$('#nt-nom'); if(n&&!NT.edited)n.value=defName();}
@@ -711,10 +721,10 @@ function submitNew(){
   var q=($('#nt-q').value||'').trim(), sel=NT.sel.slice();
   if(!sel.length&&q.length>=2){err.textContent='Touche le village dans la liste pour le choisir.'; return;}
   if(!sel.length)sel=[{nom:nom,code:'',lat:47.62,lon:6.15,cp:''}];
-  NT.busy=true; go.disabled=true; st.textContent='Récupération des rues et des numéros…';
+  NT.busy=true; DBG=[]; go.disabled=true; st.textContent='Récupération des rues et des numéros…';
   var real=sel.filter(function(c){return c.code;}), partial=false;
   Promise.all(sel.map(function(c){return c.code?loadAddresses(c.code).then(function(a){if(a.partial)partial=true; return a;}).catch(function(){return null;}):Promise.resolve([]);})).then(function(lists){
-    if(real.length&&lists.every(function(l){return l===null;})){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Impossible de récupérer les adresses (réseau ?). Réessaie, ou crée la tournée sans adresses.'; var b=$('#nt-go'); b.textContent='Réessayer'; var alt=$('#nt-alt'); if(!alt){b.insertAdjacentHTML('afterend','<button type="button" class="mi" id="nt-alt" data-a="newempty" style="margin-top:10px">Créer sans adresses (j\'ajoute les rues à la main)</button>');} return;}
+    if(real.length&&lists.every(function(l){return l===null;})){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Impossible de récupérer les adresses. Réessaie, ou crée la tournée sans adresses.'; var dg=$('#nt-dbg'); if(dg)dg.textContent='Détail : '+DBG.slice(-4).join(' | '); var b=$('#nt-go'); b.textContent='Réessayer'; var alt=$('#nt-alt'); if(!alt){b.insertAdjacentHTML('afterend','<button type="button" class="mi" id="nt-alt" data-a="newempty" style="margin-top:10px">Créer sans adresses (j\'ajoute les rues à la main)</button>');} return;}
     var g=buildGeo(sel,lists.map(function(l){return l||[];})), code=createTour(nom,g);
     toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées')+(partial?' (liste peut-être incomplète)':''):'Tournée créée'); setTimeout(sharePanel,250);
   });
@@ -923,6 +933,7 @@ document.addEventListener('click',function(e){
   else if(a==='allrues'){state.config.rues=null; putCfg(); ruesPanel();}
   else if(a==='norues'){state.config.rues=[]; putCfg(); ruesPanel();}
   else if(a==='leave'){if(armed(t))leaveTour(T.cur);}
+  else if(a==='comeback'){joinCode(t.dataset.code).then(function(){toast('Tournée retrouvée');},function(m){toast(m); menuPanel();});}
   else if(a==='delete'){if(armed(t))deleteTour(T.cur);}
   else if(a==='copycode'){var ct=tourOf(T.cur); if(ct){var txt=fmtCode(ct.code); (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Code copié');},function(){toast('Code : '+txt);});}}
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
@@ -961,6 +972,7 @@ document.addEventListener('change',function(e){
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();});
 
 init();
+setTimeout(function(){var sp=document.getElementById('splash'); if(sp){sp.classList.add('out'); setTimeout(function(){sp.remove();},600);}},1800);
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
 })();
 </script>
