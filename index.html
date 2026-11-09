@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.4</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.5</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.4</p>
+  <p class="sub">Calendriers des pompiers · v4.5</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -590,6 +590,7 @@ var ADMIN_HASH='50b42393a019f612e9dd8f5d83b1fd135fbef4ec87ce860f022d2132d44e0dbf
 var ADMIN_EMAIL='admin@pompiers70.fr';
 function adminErr(e){
   var k=e&&e.code||'';
+  if(k==='auth/configuration-not-found')return 'Firebase Authentication n\'est pas encore activé dans ton projet : Firebase > Authentication > Commencer, puis active « E-mail/Mot de passe » et crée l\'utilisateur '+ADMIN_EMAIL+'.';
   if(k==='auth/operation-not-allowed')return 'Dans Firebase > Authentication > Méthode de connexion, active « E-mail/Mot de passe ».';
   if(k==='auth/user-not-found'||k==='auth/invalid-credential'||k==='auth/wrong-password'||k==='auth/invalid-login-credentials')return 'Le compte '+ADMIN_EMAIL+' n\'existe pas dans Firebase > Authentication, ou son mot de passe n\'est pas identique au code administrateur.';
   if(k==='auth/network-request-failed')return 'Pas de connexion réseau.';
@@ -698,7 +699,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.4';
+var DBG=[], VERSION='4.5';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
