@@ -5,7 +5,7 @@ service cloud.firestore {
       allow get, create, update, delete: if code.matches('[A-Z0-9]{12}');
     }
     match /tournees/{code}/ventes/{id} {
-      allow read, write: if code.matches('[A-Z0-9]{12}') && id.size() < 200;
+      allow read, write: if code.matches('[A-Z0-9]{12}');
     }
   }
 }
