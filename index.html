@@ -268,12 +268,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.13</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.14</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.13</p>
+  <p class="sub">Calendriers des pompiers · v4.14</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -535,7 +535,7 @@ function leaveTour(code,msg,forget){
   var s=subs[code]; if(s){if(s.v)s.v(); if(s.d)s.d(); if(typeof s.p==='function')s.p();} delete subs[code];
   T.list=T.list.filter(function(t){return t.code!==code;}); lsSet('list',T.list);
   try{localStorage.removeItem(LS+'t:'+code);}catch(e){} delete cache[code]; closeSheet();
-  if(T.cur===code){T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); state.street=null; applyGeo(null); render();} else render();
+  if(T.cur===code){T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); state.street=null; applyGeo(null); render(); if(typeof openPrincipal==='function')openPrincipal(code);} else render();
   toast(msg||'Tournée quittée');
 }
 function confirmDelete(code){
@@ -572,7 +572,7 @@ function menuPanel(){
     return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
   var h=panelHead('Menu','')+mh('Mes tournées')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +'<div class="mg">'+ms('newt','+ Nouvelle')+ms('join','Rejoindre (code)')+'</div>'
-   +(T.left.length?'<details class="mdet"><summary>Tournées quittées ('+T.left.length+')</summary>'+T.left.map(function(l){return '<button type="button" class="mi sm" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join('')+'</details>':'');
+   +(T.left.length?mh('Tournées quittées')+T.left.map(function(l){return '<button type="button" class="mi sm" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'');
   if(cur)h+=mh('Cette tournée : '+esc(cur.nom))+'<div class="mg">'+ms('share','Partager (QR)')+ms('rues','Rues')+ms('rename','Renommer')+ms('part','Participants')+ms('leave','Quitter')+'</div>'
    +(canDelete(cur)?'<button type="button" class="mi sm danger" data-a="delete">Supprimer pour tout le monde</button>':'');
   h+=casMenu();
@@ -722,7 +722,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.13';
+var DBG=[], VERSION='4.14';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1105,10 +1105,17 @@ function casMultiPanel(cid){
    +casCache.mem.map(function(m){var p=principalOf(m,casCache.tours); return '<label class="mc" style="cursor:pointer"><input type="checkbox" name="mm" value="'+m.id+'" style="width:22px;height:22px;margin-right:10px"><span class="rn">'+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+'<small>'+(p?'Actuellement : '+esc(p.nom):'Pas de tournée')+'</small></span></label>';}).join('')
    +'<p class="err" id="mm-err" role="alert"></p><button type="submit" class="primary">Affecter</button></form>');
 }
+function affectMember(cid,mid,tid){
+  var ref=caseDoc(cid).collection('membres').doc(mid);
+  if(!tid)return ref.set({aff:null,affEnc:null},{merge:true});
+  var m=casCache&&casCache.mem.filter(function(x){return x.id===mid;})[0], e=casCache&&casCache.tours.filter(function(x){return x.id===tid;})[0];
+  if(!m||!m.pub||!e)return ref.set({aff:tid,affEnc:null},{merge:true});
+  return decKeyFor(cid).then(function(k){if(!k)throw 0; return decWith(k.key,e[k.f]);}).then(function(code){return encFor(m.pub,code);}).then(function(ct){return ref.set({aff:tid,affEnc:ct},{merge:true});}).catch(function(){return ref.set({aff:tid,affEnc:null},{merge:true});});
+}
 function casMultiDo(cid){
   var t=document.querySelector('input[name=mt]:checked'), ms=[].slice.call(document.querySelectorAll('input[name=mm]:checked'));
   var er=$('#mm-err'); if(!t||!ms.length){if(er)er.textContent='Coche au moins une personne.'; return;}
-  Promise.all(ms.map(function(x){return caseDoc(cid).collection('membres').doc(x.value).set({aff:t.value},{merge:true});})).then(function(){toast(pl(ms.length,'personne affectée','personnes affectées')); casPanel(cid);}).catch(function(){if(er)er.textContent='Échec (réseau ?).';});
+  Promise.all(ms.map(function(x){return affectMember(cid,x.value,t.value);})).then(function(){toast(pl(ms.length,'personne affectée','personnes affectées')); casPanel(cid);}).catch(function(){if(er)er.textContent='Échec (réseau ?).';});
 }
 
 function tourMenuPanel(cid,tid){
@@ -1119,7 +1126,35 @@ function tourMenuPanel(cid,tid){
 }
 function casUnaff(cid,mid){
   if(!isCasAdmin(cid))return;
-  caseDoc(cid).collection('membres').doc(mid).set({aff:'-'},{merge:true}).then(function(){toast('Retiré de la tournée'); casPanel(cid);}).catch(function(){toast('Échec (réseau ?)');});
+  caseDoc(cid).collection('membres').doc(mid).set({aff:'-',affEnc:null},{merge:true}).then(function(){toast('Retiré de la tournée'); casPanel(cid);}).catch(function(){toast('Échec (réseau ?)');});
+}
+
+/* ---------- tournée principale : clé du membre, ouverture automatique ---------- */
+function ensureMemberKey(cs){
+  if(!fs||!cs||!cs.mid||cs.visitor||lsGet('mk:'+cs.cid,null))return;
+  crypto.subtle.generateKey({name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['encrypt','decrypt']).then(function(kp){
+    return Promise.all([crypto.subtle.exportKey('spki',kp.publicKey),crypto.subtle.exportKey('pkcs8',kp.privateKey)]);
+  }).then(function(r){return caseDoc(cs.cid).collection('membres').doc(cs.mid).set({pub:b64(r[0])},{merge:true}).then(function(){lsSet('mk:'+cs.cid,b64(r[1]));});}).catch(function(){});
+}
+function principalCode(){
+  var cs=casOf(T.ccur); if(!cs||cs.visitor||!cs.mid)return Promise.resolve(null);
+  var m=(PRES.c[cs.cid]||{})[cs.mid]||null;
+  return Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});})).then(function(){
+    if(m&&m.aff==='-')return null;
+    if(m&&m.aff){
+      var t=T.list.filter(function(x){return x.tid===m.aff;})[0]; if(t)return t.code;
+      var mk=lsGet('mk:'+cs.cid,null); if(m.affEnc&&mk)return impPriv(unb64(mk)).then(function(key){return decWith(key,m.affEnc);}).catch(function(){return null;});
+      return null;
+    }
+    if(isCasAdmin(cs.cid))return null;
+    var f=T.list.filter(function(x){return x.owner&&x.tid&&x.cid===cs.cid;})[0]; return f?f.code:null;
+  });
+}
+function openPrincipal(exclude){
+  principalCode().then(function(code){
+    if(!code||code===exclude||code===T.cur)return;
+    if(tourOf(code))setCur(code); else joinCode(code).catch(function(){});
+  }).catch(function(){});
 }
 
 
@@ -1134,7 +1169,7 @@ function myPrincTid(){
   if(isCasAdmin(cs.cid))return null;
   var f=T.list.filter(function(t){return t.owner&&t.tid&&t.cid===cs.cid;})[0]; return f?f.tid:null;
 }
-var lastPt;
+var lastPt, launchedP=false, hashJoin=/#t=/.test(location.hash);
 function beat(off){
   if(!fs)return; var now=off?0:Date.now();
   if(T.cur&&tourOf(T.cur))presDoc(T.cur).set({prenom:T.me||'?',seen:now,own:!!tourOf(T.cur).owner,pt:myPrincTid()||null},{merge:true}).catch(function(){});
@@ -1186,6 +1221,8 @@ function subscribeCasMem(cid){
     PRES.c[cid]=m; var c=casOf(cid); if(!c)return;
     checkNew('c:'+cid,ids,'la caserne « '+c.nom+' »',names,(!c.visitor&&isCasAdmin(cid))?{selfId:c.mid}:null);
     updateDots(); var pt=myPrincTid(); if(lastPt!==undefined&&pt!==lastPt)beat(); lastPt=pt;
+    if(c.mid&&cid===T.ccur&&m[c.mid]){var me=m[c.mid], sig=(me.aff||'')+'|'+(me.affEnc?'1':'0'), prev=lsGet('lastaff:'+cid,null); ensureMemberKey(c);
+      if(prev===null||prev!==sig){lsSet('lastaff:'+cid,sig); if(!hashJoin)openPrincipal();} else if(!launchedP){launchedP=true; if(!hashJoin)openPrincipal();} launchedP=true;}
   },function(){});
 }
 function unsubCasMem(cid){if(typeof PRES['u'+cid]==='function')PRES['u'+cid](); delete PRES['u'+cid]; delete PRES.c[cid];}
@@ -1409,7 +1446,7 @@ document.addEventListener('click',function(e){
   else if(a==='casopen'){setCur(t.dataset.code);}
   else if(a==='casjoin'){casJoin(t.dataset.cid,t.dataset.tid);}
   else if(a==='casaff'){casAffPanel(t.dataset.cid,t.dataset.mid);}
-  else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; caseDoc(cid9).collection('membres').doc(t.dataset.mid).set({aff:tid9},{merge:true}).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
+  else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; affectMember(cid9,t.dataset.mid,tid9).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
   else if(a==='tourmenu'){tourMenuPanel(t.dataset.cid,t.dataset.tid);}
