@@ -250,12 +250,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.11</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.13</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.11</p>
+  <p class="sub">Calendriers des pompiers · v3.13</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -662,19 +662,32 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.11';
+var DBG=[], VERSION='3.13';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
-var DB=null, DBP=null;
+var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
   if(DB)return Promise.resolve(DB); if(DBP)return DBP;
-  return (DBP=fetch('adresses-70.json').then(function(r){if(!r.ok)throw new Error('http'+r.status); return r.json();}).then(function(j){DB=j; return j;}).catch(function(e){DBP=null; DBG.push('adresses-70.json → '+((e&&e.message)||'erreur')); throw e;}));
+  return (DBP=fetch('adresses-70.json').then(function(r){if(!r.ok)throw new Error('http'+r.status); return r.json();}).then(function(j){DB=j; buildHam(j); return j;}).catch(function(e){DBP=null; DBG.push('adresses-70.json → '+((e&&e.message)||'erreur')); throw e;}));
+}
+function buildHam(db){
+  var H={}, seen={};
+  function add(c,hn,street,p){var k=c.c+'#'+slug(hn); if(!k||k.slice(-1)==='#')return; var h=H[k]||(H[k]={code:k,n:hn,cc:c.c,cn:c.n,cp:c.cp,a:[],la:0,lo:0}); var dk=k+'|'+street+'|'+p[0]; if(seen[dk])return; seen[dk]=1; h.a.push({v:street,n:p[0],lat:p[1],lon:p[2]}); h.la+=p[1]; h.lo+=p[2];}
+  db.forEach(function(c){c.s.forEach(function(s){
+    var road=ROAD_RE.test(s[0]);
+    s[2].forEach(function(p){ if(p[3])add(c,p[3],s[0],p); if(!road)add(c,s[0],s[0],p); });
+  });});
+  HAMK=H; HAMS=Object.keys(H).map(function(k){var h=H[k]; h.p=[h.la/h.a.length,h.lo/h.a.length]; return h;}).filter(function(h){return h.a.length>0;});
 }
 function searchCommunes(q){
   var nq=norm(q);
   return loadDB().then(function(db){
     var res=db.filter(function(c){return norm(c.n).indexOf(nq)>-1;});
     res.sort(function(a,b){var x=norm(a.n).indexOf(nq)===0?0:1, y=norm(b.n).indexOf(nq)===0?0:1; return x-y||a.n.length-b.n.length;});
-    return res.slice(0,8).map(function(c){return {nom:c.n,code:c.c,centre:{coordinates:[c.p[1],c.p[0]]},codesPostaux:[c.cp]};});
+    var hs=HAMS.filter(function(h){return norm(h.n).indexOf(nq)>-1;});
+    hs.sort(function(a,b){var x=norm(a.n).indexOf(nq)===0?0:1, y=norm(b.n).indexOf(nq)===0?0:1; return x-y||a.n.length-b.n.length;});
+    var r1=res.slice(0,5).map(function(c){return {nom:c.n,code:c.c,centre:{coordinates:[c.p[1],c.p[0]]},codesPostaux:[c.cp],sub:c.cp};});
+    var r2=hs.slice(0,10-r1.length).map(function(h){return {nom:h.n,code:h.code,centre:{coordinates:[h.p[1],h.p[0]]},codesPostaux:[h.cp],sub:'Hameau · '+h.cn+' '+h.cp};});
+    return r1.concat(r2);
   });
 }
 function csvCtx(code){return {h:null,out:[],code:code};}
@@ -724,12 +737,13 @@ function banApi(code){
 }
 function loadAddresses(code){
   return loadDB().then(function(db){
+    if(code.indexOf('#')>-1){var h=HAMK[code]; if(!h)throw new Error('hameau absent'); return h.a.map(function(a){return {v:a.v,vil:'',n:a.n,lat:a.lat,lon:a.lon};});}
     var c=db.filter(function(x){return x.c===code;})[0]; if(!c)throw new Error('commune absente'); var out=[];
     c.s.forEach(function(s){s[2].forEach(function(p){out.push({v:s[0],vil:s[1]||'',n:p[0],lat:p[1],lon:p[2]});});});
     if(!out.length)throw new Error('vide'); return out;
   });
 }
-var ROAD_RE=/^(rue|chemin|impasse|route|all[ée]e|avenue|place|voie|passage|ruelle|cour|sentier|lotissement|r[ée]sidence|boulevard|quai|square|cit[ée]|zone|zac|promenade|pont|rond|parvis|carrefour|faubourg|grand[\s-]?rue|ancien|petite rue|vieux chemin|petit chemin)\b/i;
+var ROAD_RE=/^(grande[\s-]?rue|rue|chemin|impasse|route|all[ée]e|avenue|place|voie|passage|ruelle|cour|sentier|lotissement|r[ée]sidence|boulevard|quai|square|cit[ée]|zone|zac|promenade|pont|rond|parvis|carrefour|faubourg|grand[\s-]?rue|ancien|petite rue|vieux chemin|petit chemin)\b/i;
 function buildGeo(communes,lists){
   var streets=[],pts={},seen={},lat=0,lon=0,n=0,ids={},vils=[];
   function addV(v){if(v&&vils.indexOf(v)<0)vils.push(v);}
@@ -749,8 +763,8 @@ function selChips(){return NT.sel.map(function(c){return '<span class="chip2">'+
 function defName(){return NT.sel.length?'Tournée '+NT.sel.map(function(c){return c.nom;}).join(' + '):'Tournée n°'+(T.list.length+1);}
 function newPanel(){
   NT={sel:[],nom:'',edited:false,busy:false,t:0};
-  openPanel(panelHead('Nouvelle tournée','Cherche le village : les rues et les numéros sont récupérés automatiquement.')
-   +'<form data-f="newt"><label class="fld" for="nt-q">Village (Haute-Saône)</label><input type="text" id="nt-q" autocomplete="off" placeholder="Ex. : Vesoul, Gray, Luxeuil…"><div id="nt-res"></div><div id="nt-sel" class="chips2"></div>'
+  openPanel(panelHead('Nouvelle tournée','Cherche un village ou un hameau : les rues et les numéros sont récupérés automatiquement.')
+   +'<form data-f="newt"><label class="fld" for="nt-q">Village (Haute-Saône)</label><input type="text" id="nt-q" autocomplete="off" placeholder="Village ou hameau (ex. : Vesoul, Esprels…)"><div id="nt-res"></div><div id="nt-sel" class="chips2"></div>'
    +'<label class="fld" for="nt-nom">Nom de la tournée</label><input type="text" id="nt-nom" autocomplete="off" value="'+esc(defName())+'">'+meField()
    +'<p class="err" id="nt-err" role="alert"></p><p class="hint" id="nt-st" role="status"></p><p class="note" id="nt-dbg"></p><button type="submit" class="primary" id="nt-go" style="margin-top:6px">Créer la tournée</button></form>'
    +'<button type="button" class="mi" data-a="presetcrev" style="margin-top:14px">Crevans et La Chapelle (déjà prêt)</button>');
@@ -761,7 +775,7 @@ function ntSearch(q){
   if(q.trim().length<2){box.innerHTML=''; return;}
   NT.t=setTimeout(function(){searchCommunes(q.trim()).then(function(l){
     if(!$('#nt-res')||$('#nt-q').value.trim()!==q.trim())return;
-    box.innerHTML=l.length?l.map(function(c){return '<button type="button" class="row" data-a="pickc" data-code="'+c.code+'" data-nom="'+esc(c.nom)+'" data-lat="'+(c.centre?c.centre.coordinates[1]:'')+'" data-lon="'+(c.centre?c.centre.coordinates[0]:'')+'" data-cp="'+esc((c.codesPostaux||[])[0]||'')+'"><span class="rn">'+esc(c.nom)+'<small>'+esc((c.codesPostaux||[]).slice(0,2).join(', '))+'</small></span><span class="rm">Ajouter</span></button>';}).join(''):'<p class="empty">Aucun village trouvé.</p>';
+    box.innerHTML=l.length?l.map(function(c){return '<button type="button" class="row" data-a="pickc" data-code="'+c.code+'" data-nom="'+esc(c.nom)+'" data-lat="'+(c.centre?c.centre.coordinates[1]:'')+'" data-lon="'+(c.centre?c.centre.coordinates[0]:'')+'" data-cp="'+esc((c.codesPostaux||[])[0]||'')+'"><span class="rn">'+esc(c.nom)+'<small>'+esc(c.sub||(c.codesPostaux||[]).slice(0,2).join(', '))+'</small></span><span class="rm">Ajouter</span></button>';}).join(''):'<p class="empty">Aucun village trouvé.</p>';
   }).catch(function(){var b=$('#nt-res'); if(b)b.innerHTML='<p class="empty">Recherche impossible (pas de réseau ?).</p>';});},250);
 }
 function submitNew(){
