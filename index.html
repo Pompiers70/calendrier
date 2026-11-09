@@ -268,12 +268,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.18</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.19</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.18</p>
+  <p class="sub">Calendriers des pompiers · v4.19</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -646,7 +646,7 @@ function adminTry(code){
   unwrapPriv(GLOBAL_WRAP,v).then(function(pk8){lsSet('gk',b64(pk8)); T.admin=true; lsSet('admin',true); adminLogin(v);}).catch(function(){toast('Code administrateur incorrect');});
 }
 function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
-function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button><button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>'+(T.cas.length?'':'<button type="button" class="btn" data-a="addcas" style="width:100%;margin-top:12px;min-height:58px">Créer ou rejoindre une caserne</button>');}
+function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button><button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>'+(T.cas.length?'<p class="mh">Mes casernes</p>'+T.cas.map(function(x){return '<button type="button" class="btn" data-a="cas" data-cid="'+x.cid+'" style="width:100%;margin-top:8px;min-height:58px">'+(x.cid===T.ccur?'<i class="dot on"></i>':'')+esc(x.nom)+'</button>';}).join(''):'')+'<button type="button" class="btn" data-a="addcas" style="width:100%;margin-top:12px;min-height:58px">Créer ou rejoindre une caserne</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
 
@@ -722,7 +722,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.18';
+var DBG=[], VERSION='4.19';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
