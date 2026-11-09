@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.22</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.23</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.22</p>
+  <p class="sub">Calendriers des pompiers · v4.23</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -732,7 +732,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.22';
+var DBG=[], VERSION='4.23';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1038,26 +1038,38 @@ function casPanel(cid){
    +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
   casLoad(cid);
 }
-function casLoad(cid){
-  var cs=casOf(cid), box=$('#cas-body'); if(!fs){box.innerHTML='<p class="empty">Synchronisation non activée.</p>'; return;}
-  Promise.all([caseDoc(cid).collection('tournees').get(),caseDoc(cid).collection('membres').get(),Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});}))]).then(function(r){
-    var tours0=r[0].docs.map(function(d){return d.id;}); T.list.forEach(function(t){if(!t.cid&&t.tid&&tours0.indexOf(t.tid)>-1)t.cid=cid;}); lsSet('list',T.list);
-    var tours=r[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}).filter(function(x){return !x.supprime;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});
-    var mem=r[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    mem.sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});
-    var adm=isCasAdmin(cid), h='<h2 style="margin-top:6px">Tournées</h2>';
-    h+=tours.length?tours.map(function(e){var assg=mem.filter(function(m){var p=principalOf(m,tours); return p&&p.id===e.id;}); var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
+function casRender(cid,tours,mem){
+    var cs=casOf(cid), adm=isCasAdmin(cid), h='<h2 style="margin-top:6px">Tournées</h2>';
+    if(tours===null)h+='<p class="hint">Chargement des tournées…</p>'; var tl=tours||[], ml=mem||[];
+    h+=tl.length?tl.map(function(e){var assg=ml.filter(function(m){var p=principalOf(m,tl); return p&&p.id===e.id;}); var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
       var act=mine?'<button type="button" class="lk go" data-a="casopen" data-code="'+mine.code+'">Ouvrir</button>':(adm?'<button type="button" class="lk go" data-a="casjoin" data-cid="'+cid+'" data-tid="'+e.id+'">Rejoindre</button>':'<span class="note" style="margin:0">Code ou QR code nécessaire</span>');
-      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(assg.length?assg.map(function(m){return esc(m.prenom||'?');}).join(', '):'Aucun personnel affecté')+'</small></span><div class="lks" style="margin:0">'+act+(adm&&assg.length?'<button type="button" class="lk dots" data-a="tourmenu" data-cid="'+cid+'" data-tid="'+e.id+'" aria-label="Options de la tournée">⋮</button>':'')+'</div></div>';}).join(''):'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>';
+      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(assg.length?assg.map(function(m){return esc(m.prenom||'?');}).join(', '):'Aucun personnel affecté')+'</small></span><div class="lks" style="margin:0">'+act+(adm&&assg.length?'<button type="button" class="lk dots" data-a="tourmenu" data-cid="'+cid+'" data-tid="'+e.id+'" aria-label="Options de la tournée">⋮</button>':'')+'</div></div>';}).join(''):(tours===null?'':'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>');
     if(adm&&!cs.visitor)h+='<button type="button" class="mi" data-a="newt" style="margin-top:6px">+ Créer une tournée pour la caserne</button><p class="note" style="margin:0 0 8px">Elle ne sera affectée à personne, toi compris : utilise « Affecter » ensuite.</p>';
     h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
-    if(adm&&tours.length&&mem.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
+    if(adm&&tl.length&&ml.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
     h+='<h2>Les membres</h2>';
-    h+=mem.length?mem.map(function(m){var p=principalOf(m,tours), me=cs.mid===m.id;
-      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tours.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tours.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):'<p class="empty">Aucun membre.</p>';
+    h+=ml.length?ml.map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id;
+      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
     var b=$('#cas-body'); if(b)b.innerHTML=h;
-    casCache={tours:tours,mem:mem}; if(adm&&!cs.visitor!==false||adm)casClean(cid,tours);
-  }).catch(function(){var b=$('#cas-body'); if(b)b.innerHTML='<p class="empty">Impossible de charger la caserne (réseau ou règles Firebase).</p>';});
+    if(tours&&mem){casCache={tours:tours,mem:mem}; if(adm)casClean(cid,tours);}
+}
+function casMemList(cid){var m=PRES.c[cid]; if(!m)return null; return Object.keys(m).map(function(i){return Object.assign({id:i},m[i]);}).sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});}
+function casLoad(cid){
+  var cs=casOf(cid), box=$('#cas-body'); if(!fs){box.innerHTML='<p class="empty">Synchronisation non activée.</p>'; return;}
+  var cached=lsGet('cc:'+cid,null)||{}, L={tours:cached.tours||null,mem:casMemList(cid)||cached.mem||null};
+  casRender(cid,L.tours,L.mem);
+  var live=function(){if($('#cas-body')&&casOf(cid))casRender(cid,L.tours,L.mem);};
+  var fail=function(){if(L.tours===null||L.mem===null){var b=$('#cas-body'); if(b&&!(L.tours||L.mem))b.innerHTML='<p class="empty">Impossible de charger la caserne (réseau ou règles Firebase).</p>';}};
+  Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});})).catch(function(){});
+  caseDoc(cid).collection('tournees').get().then(function(r){
+    var tours0=r.docs.map(function(d){return d.id;}); T.list.forEach(function(t){if(!t.cid&&t.tid&&tours0.indexOf(t.tid)>-1)t.cid=cid;}); lsSet('list',T.list);
+    L.tours=r.docs.map(function(d){return Object.assign({id:d.id},d.data());}).filter(function(x){return !x.supprime;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+    lsSet('cc:'+cid,{tours:L.tours,mem:L.mem}); live();
+  }).catch(fail);
+  caseDoc(cid).collection('membres').get().then(function(r){
+    L.mem=r.docs.map(function(d){return Object.assign({id:d.id},d.data());}).sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});
+    lsSet('cc:'+cid,{tours:L.tours,mem:L.mem}); live();
+  }).catch(fail);
 }
 var casCache=null;
 function casJoin(cid,tid){
