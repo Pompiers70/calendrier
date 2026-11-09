@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.2</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.3</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.2</p>
+  <p class="sub">Calendriers des pompiers · v4.3</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -642,6 +642,7 @@ function init(){
     if(ok){T.list.forEach(function(t){subscribe(t.code);}); setSync(navigator.onLine?'loading':'offline'); setTimeout(function(){if(state.sync==='loading')setSync('slow');},10000);}
     else setSync('local');
     if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
+    if(ok)checkCasExist();
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
   });
@@ -685,7 +686,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.2';
+var DBG=[], VERSION='4.3';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -967,6 +968,7 @@ function casPanel(cid){
   T.ccur=cid; saveCas();
   var adm=isCasAdmin(cid);
   openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+(adm?' <span class="redadm">(administrateur)</span>':'')+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
+   +(adm?'<button type="button" class="mi danger" data-a="casdel" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Supprimer cette caserne</button>':'')
    +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
   casLoad(cid);
 }
@@ -1012,8 +1014,29 @@ function allCasPanel(){
   lib('auth').then(function(){return fs.collection('casernes').get();}).then(function(snap){
     var rows=snap.docs.map(function(d){return {cid:d.id,nom:(d.data()||{}).nom||d.id};}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
     var st=$('#ac-st'); if(!st)return; st.textContent=rows.length?pl(rows.length,'caserne','casernes'):'Aucune caserne.';
-    $('#ac-list').innerHTML=rows.map(function(r){return '<button type="button" class="row" data-a="casvisit" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'"><span class="rn">'+esc(r.nom)+'</span><span class="rm">Ouvrir</span></button>';}).join('');
+    $('#ac-list').innerHTML=rows.map(function(r){return '<div class="mc"><button type="button" class="row" data-a="casvisit" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'" style="flex:1"><span class="rn">'+esc(r.nom)+'</span><span class="rm">Ouvrir</span></button><button type="button" class="lk" data-a="casdel" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'" style="color:var(--accent)">Supprimer</button></div>';}).join('');
   }).catch(function(e){var st=$('#ac-st'); if(st)st.textContent=(e&&e.code==='permission-denied')?'Accès refusé : vérifie la connexion administrateur Firebase et les règles.':'Impossible de charger (réseau ?).';});
+}
+
+function confirmCasDelete(cid,nom){
+  var old=$('#dlg'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.dataset.cas=cid;
+  d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">Supprimer la caserne ?</h3><p>« <b>'+esc(nom)+'</b> » sera supprimée <b>pour tout le monde</b> : membres et liste des tournées.</p><p>Les tournées et leurs ventes ne sont pas supprimées. Cette action est définitive.</p><button type="button" class="primary" data-a="dlgyes">Oui, supprimer</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Annuler</button></div>';
+  document.body.appendChild(d);
+}
+function dropCas(cid){T.cas=T.cas.filter(function(c){return c.cid!==cid;}); if(T.ccur===cid)T.ccur=T.cas[0]?T.cas[0].cid:null; saveCas(); try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){}}
+function deleteCaserne(cid){
+  if(!fs||!isCasAdmin(cid)){toast('Réservé à l\'administrateur'); return;}
+  var ref=caseDoc(cid);
+  ref.set({supprime:true},{merge:true}).then(function(){
+    return Promise.all([ref.collection('membres').get(),ref.collection('tournees').get()]);
+  }).then(function(r){
+    return Promise.all(r[0].docs.map(function(d){return ref.collection('membres').doc(d.id).delete();}).concat(r[1].docs.map(function(d){return ref.collection('tournees').doc(d.id).delete();})));
+  }).then(function(){return ref.delete();}).then(function(){dropCas(cid); closeSheet(); toast('Caserne supprimée'); render();}).catch(function(){toast('Suppression impossible (réseau ou règles)');});
+}
+function checkCasExist(){
+  if(!fs)return;
+  T.cas.slice().forEach(function(c){if(c.visitor)return; caseDoc(c.cid).get().then(function(s){if(!s.exists||(s.data()||{}).supprime){dropCas(c.cid); toast('La caserne « '+c.nom+' » a été supprimée');}}).catch(function(){});});
 }
 
 
@@ -1217,6 +1240,7 @@ document.addEventListener('click',function(e){
   else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; caseDoc(cid9).collection('membres').doc(t.dataset.mid).set({aff:tid9},{merge:true}).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
+  else if(a==='casdel'){if(armed(t,1500))confirmCasDelete(t.dataset.cid,t.dataset.nom);}
   else if(a==='casvisit'){var cv=t.dataset.cid; if(!casOf(cv))T.cas.push({cid:cv,nom:t.dataset.nom,mid:'',admin:false,visitor:true}); T.ccur=cv; saveCas(); casPanel(cv);}
   else if(a==='adminlist')adminListPanel();
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
@@ -1242,7 +1266,7 @@ document.addEventListener('click',function(e){
   else if(a==='comeback'){joinCode(t.dataset.code).then(function(){toast('Tournée retrouvée');},function(m){toast(m); menuPanel();});}
   else if(a==='delete'){if(armed(t,1500))confirmDelete(T.cur);}
   else if(a==='dlgno'){var dg=$('#dlg'); if(dg)dg.remove();}
-  else if(a==='dlgyes'){var dg2=$('#dlg'); if(dg2){var dcode=dg2.dataset.code; dg2.remove(); deleteTour(dcode);}}
+  else if(a==='dlgyes'){var dg2=$('#dlg'); if(dg2){var dcode=dg2.dataset.code, dcas=dg2.dataset.cas; dg2.remove(); if(dcas)deleteCaserne(dcas); else deleteTour(dcode);}}
   else if(a==='copycode'){var ct=tourOf(T.cur); if(ct){var txt=fmtCode(ct.code); (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Code copié');},function(){toast('Code : '+txt);});}}
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
   else if(a==='save')saveSheet();

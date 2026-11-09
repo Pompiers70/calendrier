@@ -14,7 +14,8 @@ service cloud.firestore {
       allow update: if cid.matches('[a-z0-9-]{3,60}')
         && request.resource.data.pub == resource.data.pub
         && request.resource.data.wrap == resource.data.wrap;
-      allow list, delete: if isAdmin();
+      allow list: if isAdmin();
+      allow delete: if isAdmin() || resource.data.supprime == true;
     }
     match /casernes/{cid}/membres/{mid} {
       allow read, write: if cid.matches('[a-z0-9-]{3,60}');
