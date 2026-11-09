@@ -234,12 +234,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.4</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.6</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.4</p>
+  <p class="sub">Calendriers des pompiers · v3.6</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -605,9 +605,9 @@ function applyGeo(cfg){
   if(!g){GEO=null; BASE=LEG.BASE; DATA=LEG.DATA; VILLAGES=LEG.VILLAGES; DEFV=LEG.DEFV; LAT0=LEG.LAT0; LON0=LEG.LON0; BGS=LEG.BGS; BGIMG=LEG.BGIMG; COMMUNE=LEG.COMMUNE;}
   else{
     GEO=g; BASE=(g.streets||[]).map(function(s){return{id:s.id,nom:s.nom,g:s.g||'r'};}); DATA=g.pts||{}; DEFV={}; (g.streets||[]).forEach(function(s){DEFV[s.id]=s.v;});
-    VILLAGES=(g.communes||[]).map(function(c){return c.nom;}); if(!VILLAGES.length)VILLAGES=['Village'];
+    VILLAGES=(g.villages&&g.villages.length)?g.villages.slice():(g.communes||[]).map(function(c){return c.nom;}); if(!VILLAGES.length)VILLAGES=['Village'];
     LAT0=g.c[0]; LON0=g.c[1]; BGS=[]; BGIMG='';
-    COMMUNE=((g.communes||[])[0]&&g.communes[0].cp?g.communes[0].cp+' ':'')+VILLAGES.join(', ')+', France';
+    COMMUNE=((g.communes||[])[0]&&g.communes[0].cp?g.communes[0].cp+' ':'')+(g.communes||[]).map(function(c){return c.nom;}).join(', ')+', France';
   }
   KX=Math.cos(LAT0*Math.PI/180);
 }
@@ -632,9 +632,21 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.4';
+var DBG=[], VERSION='3.6';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
-function searchCommunes(q){return fetchJ('https://geo.api.gouv.fr/communes?nom='+encodeURIComponent(q)+'&codeDepartement=70&fields=nom,code,centre,codesPostaux&boost=population&limit=8',10000).then(function(r){return r.json();});}
+var DB=null, DBP=null;
+function loadDB(){
+  if(DB)return Promise.resolve(DB); if(DBP)return DBP;
+  return (DBP=fetch('adresses-70.json').then(function(r){if(!r.ok)throw new Error('http'+r.status); return r.json();}).then(function(j){DB=j; return j;}).catch(function(e){DBP=null; DBG.push('adresses-70.json → '+((e&&e.message)||'erreur')); throw e;}));
+}
+function searchCommunes(q){
+  var nq=norm(q);
+  return loadDB().then(function(db){
+    var res=db.filter(function(c){return norm(c.n).indexOf(nq)>-1;});
+    res.sort(function(a,b){var x=norm(a.n).indexOf(nq)===0?0:1, y=norm(b.n).indexOf(nq)===0?0:1; return x-y||a.n.length-b.n.length;});
+    return res.slice(0,8).map(function(c){return {nom:c.n,code:c.c,centre:{coordinates:[c.p[1],c.p[0]]},codesPostaux:[c.cp]};});
+  });
+}
 function csvCtx(code){return {h:null,out:[],code:code};}
 function csvLine(line,x){
   if(!line)return; var c=line.split(';');
@@ -669,31 +681,37 @@ function geoQ(q,code,type,lim){
   return at(0).then(function(j){return j.features||[];});
 }
 function banApi(code){
-  var out=[], names={}, fails=0;
+  var out=[], names={}, st={s:0,h:0,k:0};
   function pool(list,fn,n){var i=0; function w(){if(i>=list.length)return Promise.resolve(); return fn(list[i++]).then(w);} var ws=[]; for(var k=0;k<n;k++)ws.push(w()); return Promise.all(ws);}
-  function addHN(f){var p=f.properties||{}, g=f.geometry&&f.geometry.coordinates; if(!g||!p.street||!p.housenumber)return; names[norm(p.street)]=p.street; out.push({v:p.street,n:normNum(String(p.housenumber).replace(/^(\d+)(bis|ter|quater)$/i,'$1 $2')),lat:g[1],lon:g[0]});}
+  function okc(p){return !p.citycode||String(p.citycode)===code;}
+  function stName(p){return p.street||(p.type==='housenumber'&&p.name?String(p.name).replace(/^\S+\s+/,''):p.name)||'';}
+  function addHN(f){var p=f.properties||{}, g=f.geometry&&f.geometry.coordinates; st.h++; if(!g||!okc(p))return; var nm=stName(p), hn=p.housenumber; if(!nm||!hn)return; st.k++; names[norm(nm)]=nm; out.push({v:nm,n:normNum(String(hn).replace(/^(\d+)(bis|ter|quater)$/i,'$1 $2')),lat:g[1],lon:g[0]});}
   var seeds=['rue','chemin','impasse','route','allee','place','lotissement','les','la','le','du','de','des','sur','aux','en','pres','grande','petite','haut','bas','pont','eglise','mairie','1','2','3','4','5','6','7','8','9'];
-  return pool(seeds,function(q){return geoQ(q,code,'street',50).then(function(l){l.forEach(function(f){var p=f.properties||{}; var nm=p.street||p.name; if(nm)names[norm(nm)]=nm;});}).catch(function(){fails++;});},4)
-  .then(function(){return pool(seeds.slice(0,9),function(q){return geoQ(q,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){fails++;});},4);})
-  .then(function(){var list=Object.keys(names).map(function(k){return names[k];}); return pool(list,function(nm){return geoQ(nm,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){fails++;});},5);})
-  .then(function(){if(!out.length)throw new Error('vide'); out.partial=true; return out;});
+  return pool(seeds,function(q){return geoQ(q,code,'street',50).then(function(l){l.forEach(function(f){var p=f.properties||{}; st.s++; if(!okc(p))return; var nm=p.street||p.name; if(nm&&p.type!=='municipality')names[norm(nm)]=nm;});}).catch(function(){});},4)
+  .then(function(){return pool(seeds.slice(0,9),function(q){return geoQ(q,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){});},4);})
+  .then(function(){var list=Object.keys(names).map(function(k){return names[k];}); return pool(list,function(nm){return geoQ(nm,code,'housenumber',50).then(function(l){l.forEach(addHN);}).catch(function(){});},5);})
+  .then(function(){DBG.push('résultats reçus : '+st.s+' rues, '+st.h+' numéros, '+st.k+' gardés pour la commune '+code); if(!out.length)throw new Error('vide'); out.partial=true; return out;});
 }
 function loadAddresses(code){
-  return banCommune('https://plateforme.adresse.data.gouv.fr/ban/communes/'+code+'/download/csv-bal/adresses',9000,code)
-   .then(function(a){if(!a.length)throw 0; return a;})
-   .catch(function(){return banDep(code).then(function(a){if(!a.length)throw 0; return a;});})
-   .catch(function(){return banApi(code);});
+  return loadDB().then(function(db){
+    var c=db.filter(function(x){return x.c===code;})[0]; if(!c)throw new Error('commune absente'); var out=[];
+    c.s.forEach(function(s){s[2].forEach(function(p){out.push({v:s[0],vil:s[1]||'',n:p[0],lat:p[1],lon:p[2]});});});
+    if(!out.length)throw new Error('vide'); return out;
+  });
 }
 var ROAD_RE=/^(rue|chemin|impasse|route|all[ée]e|avenue|place|voie|passage|ruelle|cour|sentier|lotissement|r[ée]sidence|boulevard|quai|square|cit[ée]|zone|zac|promenade|pont|rond|parvis|carrefour|faubourg|grand[\s-]?rue|ancien|petite rue|vieux chemin|petit chemin)\b/i;
 function buildGeo(communes,lists){
-  var streets=[],pts={},seen={},lat=0,lon=0,n=0,ids={};
+  var streets=[],pts={},seen={},lat=0,lon=0,n=0,ids={},vils=[];
+  function addV(v){if(v&&vils.indexOf(v)<0)vils.push(v);}
   communes.forEach(function(c,ci){(lists[ci]||[]).forEach(function(a){
-    var key=c.code+'|'+norm(a.v), id=seen[key];
-    if(!id){var base=slug(a.v)||'rue', id0=base+(communes.length>1?'-'+c.code:''), k=1; id=id0; while(ids[id]){id=id0+'-'+(++k);} ids[id]=1; seen[key]=id; streets.push({id:id,nom:a.v,g:ROAD_RE.test(a.v)?'r':'l',v:c.nom}); pts[id]={};}
-    if(!pts[id][a.n]){pts[id][a.n]=[Math.round(a.lat*1e6)/1e6,Math.round(a.lon*1e6)/1e6]; lat+=a.lat; lon+=a.lon; n++;}});});
+    var vil=a.vil||c.nom; addV(vil);
+    var key=c.code+'|'+norm(a.v)+'|'+norm(vil), id=seen[key];
+    if(!id){var base=slug(a.v)||'rue', id0=base+(communes.length>1||a.vil?'-'+c.code+(a.vil?'-'+slug(a.vil):''):''), k=1; id=id0; while(ids[id]){id=id0+'-'+(++k);} ids[id]=1; seen[key]=id; streets.push({id:id,nom:a.v,g:ROAD_RE.test(a.v)?'r':'l',v:vil}); pts[id]={};}
+    if(!pts[id][a.n]){pts[id][a.n]=[Math.round(a.lat*1e6)/1e6,Math.round(a.lon*1e6)/1e6]; lat+=a.lat; lon+=a.lon; n++;}});
+    if(!(lists[ci]||[]).length)addV(c.nom);});
   streets.sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
-  var ctr=n?[lat/n,lon/n]:[communes[0].lat,communes[0].lon];
-  return {communes:communes.map(function(c){return{nom:c.nom,code:c.code,cp:c.cp||''};}),streets:streets,pts:pts,c:ctr};
+  var c0=communes[0], ctr=(c0&&isFinite(c0.lat)&&isFinite(c0.lon)&&c0.code)?[c0.lat,c0.lon]:(n?[lat/n,lon/n]:[communes[0].lat,communes[0].lon]);
+  return {communes:communes.map(function(c){return{nom:c.nom,code:c.code,cp:c.cp||''};}),villages:vils.length?vils:communes.map(function(c){return c.nom;}),streets:streets,pts:pts,c:ctr};
 }
 
 /* écran « nouvelle tournée » */
@@ -726,7 +744,7 @@ function submitNew(){
   Promise.all(sel.map(function(c){return c.code?loadAddresses(c.code).then(function(a){if(a.partial)partial=true; return a;}).catch(function(){return null;}):Promise.resolve([]);})).then(function(lists){
     if(real.length&&lists.every(function(l){return l===null;})){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Impossible de récupérer les adresses. Réessaie, ou crée la tournée sans adresses.'; var dg=$('#nt-dbg'); if(dg)dg.textContent='Détail : '+DBG.slice(-4).join(' | '); var b=$('#nt-go'); b.textContent='Réessayer'; var alt=$('#nt-alt'); if(!alt){b.insertAdjacentHTML('afterend','<button type="button" class="mi" id="nt-alt" data-a="newempty" style="margin-top:10px">Créer sans adresses (j\'ajoute les rues à la main)</button>');} return;}
     var g=buildGeo(sel,lists.map(function(l){return l||[];})), code=createTour(nom,g);
-    toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées')+(partial?' (liste peut-être incomplète)':''):'Tournée créée'); setTimeout(sharePanel,250);
+    toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées'):'Tournée créée'); setTimeout(sharePanel,250);
   });
 }
 
