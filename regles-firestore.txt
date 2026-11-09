@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tournees/{code} {
+      allow get, create, update, delete: if code.matches('[A-Z0-9]{12}');
+    }
+    match /tournees/{code}/ventes/{id} {
+      allow read, write: if code.matches('[A-Z0-9]{12}') && id.size() < 200;
+    }
+  }
+}

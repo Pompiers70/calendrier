@@ -1,0 +1,12 @@
+REMPLACE CE TEXTE par le bloc "firebaseConfig" donné par Firebase (voir les explications).
+
+Exemple de ce que tu dois coller (tes vraies valeurs à la place) :
+
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "ton-projet.firebaseapp.com",
+  projectId: "ton-projet",
+  storageBucket: "ton-projet.firebasestorage.app",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+};
