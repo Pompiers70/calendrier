@@ -247,15 +247,19 @@ input[type=text]{width:100%}
 .dlgbox{background:var(--surface); border-radius:16px; padding:22px 20px 18px; max-width:420px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.4)}
 .dlgbox h3{font:700 26px/1.1 var(--font-display); text-transform:uppercase; margin:0 0 10px; color:var(--accent)}
 .dlgbox p{font-size:17px; margin:0 0 6px}
+.onb{position:fixed; inset:0; z-index:90; background:var(--bg,#fff); display:grid; place-items:center; padding:20px; overflow:auto}
+.onbbox{max-width:440px; width:100%}
+.onbbox h2{font:700 34px/1.1 var(--font-display); text-transform:uppercase; margin:0 0 10px}
+.redadm{color:var(--accent); font-weight:700}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.13</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.0</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.13</p>
+  <p class="sub">Calendriers des pompiers · v4.0</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -445,6 +449,7 @@ function loadScript(urls,test){
 var LIBS={
   app:{u:['https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js','https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.1/firebase-app-compat.min.js'],t:function(){return !!window.firebase;}},
   fs:{u:['https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore-compat.js','https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.1/firebase-firestore-compat.min.js'],t:function(){return !!(window.firebase&&firebase.firestore);}},
+  auth:{u:['https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js','https://cdnjs.cloudflare.com/ajax/libs/firebase/10.12.1/firebase-auth-compat.min.js'],t:function(){return !!(window.firebase&&firebase.auth);}},
   qr:{u:['https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js','https://unpkg.com/qrcode-generator@1.4.4/qrcode.js','https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'],t:function(){return typeof window.qrcode==='function';}},
   jsqr:{u:['https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js','https://unpkg.com/jsqr@1.4.0/dist/jsQR.js','https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js'],t:function(){return typeof window.jsQR==='function';}}
 };
@@ -526,12 +531,12 @@ function confirmDelete(code){
   document.body.appendChild(d);
 }
 function deleteTour(code){
-  var t=tourOf(code); if(!t||!(t.owner||T.admin))return;
+  var t=tourOf(code); if(!canDelete(t))return;
   if(!fs){leaveTour(code,'Tournée supprimée',true); return;}
   toast('Suppression…');
   docRef(code).set({supprime:true},{merge:true}).then(function(){return colRef(code).get();}).then(function(snap){
     return Promise.all(snap.docs.map(function(d){return colRef(code).doc(d.id).delete();}));
-  }).then(function(){leaveTour(code,'Tournée supprimée pour tout le monde',true);}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
+  }).then(function(){unregisterTour(t); leaveTour(code,'Tournée supprimée pour tout le monde',true);}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
 }
 function toggleRue(id,on){
   var all=allStreets().map(function(s){return s.id;}), cur=(state.config.rues||all).slice(), i=cur.indexOf(id);
@@ -551,7 +556,7 @@ function menuPanel(){
   openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
    +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
-   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir')+(T.admin?' (administrateur)':''))+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+((T.admin||(tourOf(T.cur)||{}).owner)?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
+   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+casMenu()+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir')+(T.admin?' (administrateur)':''))+(T.admin?'<hr class="sep">'+mi('adminlist','Toutes les tournées (administrateur)')+mi('allcas','Toutes les casernes (administrateur)'):'')+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+(canDelete(tourOf(T.cur))?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
 }
 function joinPanel(){
   openPanel(panelHead('Rejoindre une tournée','Tape le code ou scanne le QR code d\'un collègue.')
@@ -582,10 +587,27 @@ function ruesPanel(){
 }
 function renamePanel(){var t=tourOf(T.cur); openPanel(panelHead('Renommer la tournée','')+'<form data-f="rename"><label class="fld" for="rn-nom">Nom</label><input type="text" id="rn-nom" autocomplete="off" value="'+esc(t?t.nom:'')+'"><button type="submit" class="primary">Enregistrer</button></form>');}
 var ADMIN_HASH='50b42393a019f612e9dd8f5d83b1fd135fbef4ec87ce860f022d2132d44e0dbf';
+var ADMIN_EMAIL='admin@pompiers70.fr';
+function adminLogin(pw){
+  if(!fs){toast('Mode administrateur activé'); return;}
+  lib('auth').then(function(){return firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,pw);}).then(function(){toast('Mode administrateur activé (connecté)');}).catch(function(){toast('Mode administrateur activé, mais la connexion Firebase a échoué');});
+}
+function adminOut(){try{if(window.firebase&&firebase.auth)firebase.auth().signOut();}catch(e){}}
+function adminListPanel(){
+  openPanel(panelHead('Toutes les tournées','Mode administrateur : touche une tournée pour la rejoindre.')+'<p class="hint" id="al-st">Chargement…</p><div id="al-list"></div>');
+  if(!fs){$('#al-st').textContent='Synchronisation non activée.'; return;}
+  lib('auth').then(function(){return fs.collection('tournees').get();}).then(function(snap){
+    var rows=[]; snap.docs.forEach(function(d){var x=d.data()||{}; if(x.supprime)return; rows.push({code:d.id,nom:x.nom||'Tournée',par:x.creePar||''});});
+    rows.sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+    var st=$('#al-st'), box=$('#al-list'); if(!st)return;
+    st.textContent=rows.length?pl(rows.length,'tournée','tournées'):'Aucune tournée.';
+    box.innerHTML=rows.map(function(r){var mine=!!tourOf(r.code); return '<button type="button" class="row" data-a="adminjoin" data-code="'+r.code+'"><span class="rn">'+esc(r.nom)+'<small>'+(r.par?'par '+esc(r.par)+' · ':'')+fmtCode(r.code)+(mine?' · déjà dans ta liste':'')+'</small></span><span class="rm">'+(mine?'Ouvrir':'Rejoindre')+'</span></button>';}).join('');
+  }).catch(function(e){var st=$('#al-st'); if(st)st.textContent=(e&&e.code==='permission-denied')?'Accès refusé : la connexion administrateur Firebase n\'est pas configurée (voir les explications), ou la session a expiré. Désactive puis réactive le mode administrateur.':'Impossible de charger la liste (réseau ?).';});
+}
 function adminTry(code){
   var v=String(code).trim();
   if(!(window.crypto&&crypto.subtle)){toast('Code administrateur indisponible ici'); return;}
-  crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)).then(function(b){var hx=Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2);}).join(''); if(hx===ADMIN_HASH){T.admin=true; lsSet('admin',true); toast('Mode administrateur activé');} else toast('Code administrateur incorrect');});
+  unwrapPriv(GLOBAL_WRAP,v).then(function(pk8){lsSet('gk',b64(pk8)); T.admin=true; lsSet('admin',true); adminLogin(v);}).catch(function(){toast('Code administrateur incorrect');});
 }
 function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
 function welcomeHTML(){return '<h2 style="margin-top:20px">Bienvenue</h2><p class="hint" style="font-size:17px">Une tournée, c\'est une liste de rues et des ventes partagées entre ceux qui ont son code.</p><button type="button" class="primary" data-a="newt">Créer ma tournée</button><button type="button" class="btn" data-a="join" style="width:100%;margin-top:12px;min-height:58px">J\'ai un code ou un QR code</button>';}
@@ -619,6 +641,7 @@ function init(){
   initCloud().then(function(ok){
     if(ok){T.list.forEach(function(t){subscribe(t.code);}); setSync(navigator.onLine?'loading':'offline'); setTimeout(function(){if(state.sync==='loading')setSync('slow');},10000);}
     else setSync('local');
+    if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
   });
@@ -662,7 +685,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.13';
+var DBG=[], VERSION='4.0';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -788,7 +811,7 @@ function submitNew(){
   Promise.all(sel.map(function(c){return c.code?loadAddresses(c.code).then(function(a){if(a.partial)partial=true; return a;}).catch(function(){return null;}):Promise.resolve([]);})).then(function(lists){
     if(real.length&&lists.every(function(l){return l===null;})){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Impossible de récupérer les adresses. Réessaie, ou crée la tournée sans adresses.'; var dg=$('#nt-dbg'); if(dg)dg.textContent='Détail : '+DBG.slice(-4).join(' | '); var b=$('#nt-go'); b.textContent='Réessayer'; var alt=$('#nt-alt'); if(!alt){b.insertAdjacentHTML('afterend','<button type="button" class="mi" id="nt-alt" data-a="newempty" style="margin-top:10px">Créer sans adresses (j\'ajoute les rues à la main)</button>');} return;}
     var g=buildGeo(sel,lists.map(function(l){return l||[];})), code=createTour(nom,g);
-    toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées'):'Tournée créée'); setTimeout(sharePanel,250);
+    toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées'):'Tournée créée'); registerTour(code,nom);
   });
 }
 
@@ -842,6 +865,157 @@ function recapRows(rows){
   if(ck.n){rows.push(['Chèques enregistrés dans les ventes',L.length,f(ex.cheque/100)]); rows.push(['Écart chèques','',f((ck.t-ex.cheque)/100)]);}
   if(cash>0||ck.n){rows.push(['TOTAL COMPTÉ','',f((cash+ck.t)/100)]); rows.push(['TOTAL ENREGISTRÉ','',f((ex.cash+ex.cheque+ex.nd)/100)]); rows.push(['ÉCART TOTAL','',f((cash+ck.t-ex.cash-ex.cheque-ex.nd)/100)]);}
 }
+
+
+/* ---------- casernes : chiffrement ---------- */
+var GLOBAL_PUB='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7Ct1YSlv7Sig6W9lGd/U/TmCaUFqpWLUvR68BVXuStLnYmJkFq+Zs4wTTAppbQQI+yIMXeQR7sMCTrejsXUIVx/XNqBVYiQ250C7iZH0OHWIFwOikd8IDFLVLxs3SkZwoMj0YHvsaD8fC9ovIZ9hh2q6RZq0r5S62gexUnOq4sEI56o+nMRh3u/EJ/wb0BUXWiDklMTfKeSNVFX4VYtf9MesadcePuwhvd1TEu3F71iyh5ThLKpw+LV6pvss7rMU53NCMrIvd+XHesGtyO39s4ir0lR8u8HCCRKebAAOWnz2dZCjIS5bTwm3sOox+Unxp1IWEnoH+5ztD77wISsYbQIDAQAB', GLOBAL_WRAP={"s": "37Oqx8/T9PbKAgX5/7lhog==", "i": "sqol/7696dh5LI4n", "c": "FVApeR+g6/50QzC1rg+4fk9phzEd9W3hVesLqph5sXhQcl/NuI0dVD6EVEXqg257Ch/iayZCRrLGWgO2ycoawNg+CabWjkdKW7d/Hou85z5oItW5t6Mp5dSDwYXvQJB0NIMKc8ICWWrVcPkwacvoPHDCpf95sJZiAVuZxk8LRSDllV2ii68R+gU01kIaQvNgUyx3tpIexXCAA53hosDwNyYrSWjBVKcRYkZXS65Wr0R5Q6VP/ZJ5nuRSAKNUwpd/hj2secsmx6B/gO/TthfrW2zJoc2noqV7OLaTp9pMA1Csgbgb4CnNqf6bSxlJ2z2SuSv0jrD+fbXOn0VhOas2lkH4jV4Gn6qEtISEz7S8uh+eF15yqmigMkTOHXnJ7jXHscbkFgFUacRe0SgSHUWqr/33NZA6/iRC9MJBAR9RN/lbG3kHLM5aAWzkNZE07R2OPm7rfpvPvMHs06nRTFlgGirCH0d4UafvOoPMPKhEVdJcH94jHJTYWQrLLcmV/USqWOXovKuU6/kE/saU6h1BtZv5gyzg/yrxehnmwFoKf5Ku34ekzerzcxiVdsafG1l1LJVxcWxgXru83DSOV/X45d8Sm/XIZKbAOZSepMnM3FpbRUJ5CS5I+5KYhdEGnmO32oh+huvPoc2FIR+0vdH+NKUFWj0g9Z7STs9dUuyA+oqvjEG7tlrKmopEIxVQGdtHST/E0aR/ADcK/LbW8b87sJdQoB5ajDdIatG7/9hP+hszkzOrUyFBwNoIcfa761s8NviIiKsTZarwJwkB+gHxPbZMuTYGgfEy69Xlji9FMg8Azba13ft+FYQ5QI7SQVwdBdCyvRAN7YHE50gE3P1Au4nZMsj1BWC/29Q8CurJ9apcnKJ18wNrtQ4HN74QHeArE3dLJrJ3H8U6jEmzsz0CNeRQ16I4jgEaMgvc+1dW0lFkE0ynq7XSZ4nq4ZzOPxkACybCJc2QQqhOjI/6iZ2N69T5Mt/Vor+04Fd2dsGEqZWTAI0IwhchliJIyJhWcCYIQBBV6knIsNN5r7vqjQRaWJeCCco48HYt4UruPpBnCOkEmpRU3YHtlKoBk2axTmWcDsCoW7IKaf07ltFF0CaTjk58xauOuyc8DAaZKAgCvcV1gi7JOF5wvo1gCv2+B7NX5UdmTmUiLc2avT5kVjJ8MJ3xMoJFQngqXDEq4FNMksKLZofPw+IT4sPJ+GSo1TBEbGha97K56YDJO5mEsJorNn8Z08GDcz1625R49keRT9+LyYcmEWe+fxYf/lwCD7T5GxXnICD8SMMnmBZgaHEH9ngnCDdTD+ETtb0fstZLLIjEfFSCNMxfdviHf4BfgfxvLGEYe7uMBmXOTWsFA/+b8d6faIgIWSV8fuLUfSr7A56EDU8vBZ8GHDb24OhUBefocCh4uCW/Y1KouBJbRXnvugk6WH8PhLZ3C/RT3V2DxC4c6rg5qqy1Gm6WU0HQ+puxpEU0h2MQ+DpbsC4amac5an+LdTtYEGp45jxrkoOFEkZaCFkUqHA3B6gkSFOpRzrTZfV2neO6SdWnkZ8gAs+2cKOeg04gm3CYB4bS+pgpKmXY5dHVF1Z0/qVnb7FDXgkhcnXIuYlHBmG2qe7Bscrp1Tp2dWJhaOShs1sKhHTdiUdHY/4="};
+function enc8(s){return new TextEncoder().encode(s);}
+function b64(buf){var u=new Uint8Array(buf),s=''; for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]); return btoa(s);}
+function unb64(s){var b=atob(s),u=new Uint8Array(b.length); for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i); return u;}
+var RSA={name:'RSA-OAEP',hash:'SHA-256'};
+function pbk(pw,salt){return crypto.subtle.importKey('raw',enc8(pw),'PBKDF2',false,['deriveKey']).then(function(k){return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:150000,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);});}
+function wrapPriv(pk8,pw){var s=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12)); return pbk(pw,s).then(function(k){return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},k,pk8);}).then(function(c){return {s:b64(s),i:b64(iv),c:b64(c)};});}
+function unwrapPriv(w,pw){return pbk(pw,unb64(w.s)).then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(w.i)},k,unb64(w.c));});}
+function impPriv(pk8){return crypto.subtle.importKey('pkcs8',pk8,RSA,false,['decrypt']);}
+function newKeys(pw){return crypto.subtle.generateKey({name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['encrypt','decrypt']).then(function(kp){return Promise.all([crypto.subtle.exportKey('spki',kp.publicKey),crypto.subtle.exportKey('pkcs8',kp.privateKey)]);}).then(function(r){return wrapPriv(r[1],pw).then(function(w){return {pub:b64(r[0]),wrap:w,pk8:r[1]};});});}
+function encFor(pub,txt){return crypto.subtle.importKey('spki',unb64(pub),RSA,false,['encrypt']).then(function(k){return crypto.subtle.encrypt({name:'RSA-OAEP'},k,enc8(txt));}).then(b64);}
+function decWith(key,ct){return crypto.subtle.decrypt({name:'RSA-OAEP'},key,unb64(ct)).then(function(b){return new TextDecoder().decode(b);});}
+function tidOf(code){return crypto.subtle.digest('SHA-256',enc8('tid:'+code)).then(function(b){return Array.prototype.map.call(new Uint8Array(b).slice(0,10),function(x){return ('0'+x.toString(16)).slice(-2);}).join('');});}
+/*END-CRYPTO*/
+
+/* ---------- casernes : données ---------- */
+T.cas=lsGet('cas',[]); T.ccur=lsGet('ccur',null);
+function saveCas(){lsSet('cas',T.cas); lsSet('ccur',T.ccur);}
+function casOf(cid){return T.cas.filter(function(c){return c.cid===cid;})[0];}
+function cidOf(s){return norm(s).replace(/[^a-z0-9]+/g,' ').trim().replace(/ /g,'-');}
+function caseDoc(cid){return fs.collection('casernes').doc(cid);}
+function isCasAdmin(cid){return !!lsGet('ak:'+cid,null)||!!(T.admin&&lsGet('gk',null));}
+function canDelete(t){return !!t&&!!(t.owner||T.admin||(t.cid&&isCasAdmin(t.cid)));}
+function decKeyFor(cid){
+  var a=lsGet('ak:'+cid,null); if(a)return impPriv(unb64(a)).then(function(k){return {key:k,f:'encA'};});
+  var g=lsGet('gk',null); if(T.admin&&g)return impPriv(unb64(g)).then(function(k){return {key:k,f:'encG'};});
+  return Promise.resolve(null);
+}
+function registerTour(code,nom){
+  var cs=casOf(T.ccur); if(!fs||!cs||cs.visitor)return Promise.resolve();
+  return Promise.all([tidOf(code),caseDoc(cs.cid).get()]).then(function(r){
+    var tid=r[0], d=r[1].data(); if(!d||!d.pub)return;
+    return Promise.all([encFor(d.pub,code),encFor(GLOBAL_PUB,code)]).then(function(e){
+      var t=tourOf(code); if(t){t.tid=tid; t.cid=cs.cid; lsSet('list',T.list);}
+      return caseDoc(cs.cid).collection('tournees').doc(tid).set({nom:nom,par:cs.mid||'',parNom:T.me||'',ts:Date.now(),encA:e[0],encG:e[1],adm:!!lsGet('ak:'+cs.cid,null)});
+    });
+  }).catch(function(){});
+}
+function unregisterTour(t){if(fs&&t&&t.cid&&t.tid)caseDoc(t.cid).collection('tournees').doc(t.tid).delete().catch(function(){});}
+function renameTour(t,nom){if(fs&&t&&t.cid&&t.tid)caseDoc(t.cid).collection('tournees').doc(t.tid).set({nom:nom},{merge:true}).catch(function(){});}
+
+/* ---------- casernes : premier lancement ---------- */
+function onbShow(){
+  var old=$('#onb'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='onb'; d.className='onb';
+  d.innerHTML='<div class="onbbox"><h2>Bienvenue</h2><p class="hint" style="font-size:17px">Indique ton prénom et ta caserne. Tu verras les tournées de ton centre.</p>'
+   +'<form data-f="onb1"><label class="fld" for="ob-me">Ton prénom</label><input type="text" id="ob-me" autocomplete="off" value="'+esc(T.me)+'">'
+   +'<label class="fld" for="ob-cas">Ta caserne</label><input type="text" id="ob-cas" autocomplete="off" placeholder="Ex. : CPI Esprels, CI Villers-Excel, CIP Lure">'
+   +'<p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Continuer</button></form>'
+   +'<button type="button" class="mi" data-a="onbskip" style="margin-top:12px">Passer pour l\'instant</button></div>';
+  document.body.appendChild(d);
+}
+function onbErr(m){var e=$('#ob-err'); if(e)e.textContent=m;}
+function onbStep1(){
+  var me=($('#ob-me').value||'').trim().slice(0,30), nom=($('#ob-cas').value||'').trim().replace(/\s+/g,' ').slice(0,50), cid=cidOf(nom);
+  if(!me){onbErr('Écris ton prénom.'); return;} if(cid.length<3){onbErr('Écris le nom de ta caserne (ex. : CPI Esprels).'); return;}
+  if(!fs){onbErr('La synchronisation n\'est pas activée.'); return;}
+  T.me=me; lsSet('me',me); onbErr(''); $('#ob-go').disabled=true;
+  if(casOf(cid)){T.ccur=cid; saveCas(); $('#onb').remove(); toast('Caserne déjà ajoutée'); return;}
+  caseDoc(cid).get().then(function(s){
+    if(s.exists){var d=s.data()||{}; joinCaserne(cid,d.nom||nom);}
+    else{
+      $('#onb').querySelector('.onbbox').innerHTML='<h2>Nouvelle caserne</h2><p class="hint" style="font-size:17px">« <b>'+esc(nom)+'</b> » n\'existe pas encore. Tu vas la créer et tu en seras <b>l\'administrateur</b>.</p><p class="hint">Choisis ton code administrateur : il te permettra de rejoindre n\'importe quelle tournée de ta caserne. Garde-le bien, personne ne pourra le retrouver.</p>'
+       +'<form data-f="onb2" data-nom="'+esc(nom)+'"><label class="fld" for="ob-pw">Code administrateur (8 caractères minimum)</label><input type="text" id="ob-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><label class="fld" for="ob-pw2">Retape-le</label><input type="text" id="ob-pw2" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Créer la caserne</button></form><button type="button" class="mi" data-a="onbback" style="margin-top:12px">Retour</button>';
+    }
+  }).catch(function(){$('#ob-go').disabled=false; onbErr('Connexion impossible. Vérifie ton réseau.');});
+}
+function onbStep2(nom){
+  var pw=$('#ob-pw').value, pw2=$('#ob-pw2').value, cid=cidOf(nom);
+  if(pw.length<8){onbErr('8 caractères minimum.'); return;} if(pw!==pw2){onbErr('Les deux codes ne sont pas identiques.'); return;}
+  $('#ob-go').disabled=true; onbErr('Création…');
+  newKeys(pw).then(function(k){
+    var mid=genCode();
+    return caseDoc(cid).set({nom:nom,pub:k.pub,wrap:k.wrap,creeLe:Date.now()}).then(function(){
+      return caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:true});
+    }).then(function(){lsSet('ak:'+cid,b64(k.pk8)); T.cas.push({cid:cid,nom:nom,mid:mid,admin:true}); T.ccur=cid; saveCas(); var o=$('#onb'); if(o)o.remove(); toast('Caserne créée : tu en es l\'administrateur'); render();});
+  }).catch(function(){$('#ob-go').disabled=false; onbErr('Création impossible (réseau ou règles Firebase).');});
+}
+function joinCaserne(cid,nom){
+  var mid=genCode();
+  caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:false}).then(function(){
+    T.cas.push({cid:cid,nom:nom,mid:mid,admin:false}); T.ccur=cid; saveCas(); var o=$('#onb'); if(o)o.remove(); toast('Caserne rejointe : '+nom); render();
+  }).catch(function(){var b=$('#ob-go'); if(b)b.disabled=false; onbErr('Impossible de rejoindre (réseau ?).');});
+}
+
+/* ---------- casernes : écran de la caserne ---------- */
+function casMenu(){
+  var h='<hr class="sep">'+T.cas.map(function(c){return '<button type="button" class="mi" data-a="cas" data-cid="'+c.cid+'">'+esc(c.nom)+(c.cid===T.ccur?' · active':'')+(isCasAdmin(c.cid)?' (administrateur)':'')+'</button>';}).join('');
+  return h+'<button type="button" class="mi" data-a="addcas">'+(T.cas.length?'Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
+}
+function principalOf(m,tours){
+  if(m.aff){var e=tours.filter(function(x){return x.id===m.aff;})[0]; if(e)return e;}
+  return tours.filter(function(x){return x.par===m.id&&!x.adm;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);})[0]||null;
+}
+function casPanel(cid){
+  cid=cid||T.ccur; var cs=casOf(cid); if(!cs){onbShow(); return;}
+  T.ccur=cid; saveCas();
+  var adm=isCasAdmin(cid);
+  openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+(adm?' <span class="redadm">(administrateur)</span>':'')+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
+   +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
+  casLoad(cid);
+}
+function casLoad(cid){
+  var cs=casOf(cid), box=$('#cas-body'); if(!fs){box.innerHTML='<p class="empty">Synchronisation non activée.</p>'; return;}
+  Promise.all([caseDoc(cid).collection('tournees').get(),caseDoc(cid).collection('membres').get(),Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});}))]).then(function(r){
+    lsSet('list',T.list);
+    var tours=r[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}).filter(function(x){return !x.supprime;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+    var mem=r[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    mem.sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});
+    var adm=isCasAdmin(cid), h='<h2 style="margin-top:6px">Tournées</h2>';
+    h+=tours.length?tours.map(function(e){var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
+      var act=mine?'<button type="button" class="lk go" data-a="casopen" data-code="'+mine.code+'">Ouvrir</button>':(adm?'<button type="button" class="lk go" data-a="casjoin" data-cid="'+cid+'" data-tid="'+e.id+'">Rejoindre</button>':'<span class="note" style="margin:0">Code ou QR code nécessaire</span>');
+      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(e.parNom?'créée par '+esc(e.parNom):'')+'</small></span><div class="lks" style="margin:0">'+act+'</div></div>';}).join(''):'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>';
+    h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
+    h+='<h2>Les membres</h2>';
+    h+=mem.length?mem.map(function(m){var p=principalOf(m,tours), me=cs.mid===m.id;
+      return '<div class="mc"><span class="rn">'+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&tours.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':'')+'</div>';}).join(''):'<p class="empty">Aucun membre.</p>';
+    var b=$('#cas-body'); if(b)b.innerHTML=h;
+    casCache={tours:tours,mem:mem};
+  }).catch(function(){var b=$('#cas-body'); if(b)b.innerHTML='<p class="empty">Impossible de charger la caserne (réseau ou règles Firebase).</p>';});
+}
+var casCache=null;
+function casJoin(cid,tid){
+  var e=casCache&&casCache.tours.filter(function(x){return x.id===tid;})[0]; if(!e)return;
+  decKeyFor(cid).then(function(k){if(!k)throw 0; return decWith(k.key,e[k.f]);}).then(function(code){return joinCode(code);}).then(function(){closeSheet(); toast('Tournée rejointe');}).catch(function(){toast('Impossible de rejoindre : code administrateur requis');});
+}
+function casAffPanel(cid,mid){
+  var m=casCache&&casCache.mem.filter(function(x){return x.id===mid;})[0]; if(!m)return;
+  openPanel(panelHead('Affecter '+(m.prenom||''),'Choisis sa tournée principale.')
+   +casCache.tours.map(function(e){return '<button type="button" class="row" data-a="casaffset" data-cid="'+cid+'" data-mid="'+mid+'" data-tid="'+e.id+'"><span class="rn">'+esc(e.nom)+'<small>'+(m.aff===e.id?'Affectation actuelle':'')+'</small></span></button>';}).join('')
+   +(m.aff?'<button type="button" class="mi" data-a="casaffset" data-cid="'+cid+'" data-mid="'+mid+'" data-tid="" style="margin-top:8px">Retirer l\'affectation</button>':''));
+}
+function casUnlockPanel(cid){
+  openPanel(panelHead('Administrateur de la caserne','Entre ton code administrateur.')+'<form data-f="casunlock" data-cid="'+cid+'"><label class="fld" for="cu-pw">Code administrateur</label><input type="text" id="cu-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="cu-err" role="alert"></p><button type="submit" class="primary">Valider</button></form>');
+}
+function casUnlock(cid,pw){
+  caseDoc(cid).get().then(function(s){var d=s.data(); if(!d||!d.wrap)throw 0; return unwrapPriv(d.wrap,pw);}).then(function(pk8){lsSet('ak:'+cid,b64(pk8)); var c=casOf(cid); if(c){c.admin=true; saveCas();} toast('Tu es administrateur de cette caserne'); casPanel(cid);}).catch(function(){var e=$('#cu-err'); if(e)e.textContent='Code incorrect.';});
+}
+function allCasPanel(){
+  openPanel(panelHead('Toutes les casernes','Mode administrateur')+'<p class="hint" id="ac-st">Chargement…</p><div id="ac-list"></div>');
+  if(!fs)return;
+  lib('auth').then(function(){return fs.collection('casernes').get();}).then(function(snap){
+    var rows=snap.docs.map(function(d){return {cid:d.id,nom:(d.data()||{}).nom||d.id};}).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+    var st=$('#ac-st'); if(!st)return; st.textContent=rows.length?pl(rows.length,'caserne','casernes'):'Aucune caserne.';
+    $('#ac-list').innerHTML=rows.map(function(r){return '<button type="button" class="row" data-a="casvisit" data-cid="'+r.cid+'" data-nom="'+esc(r.nom)+'"><span class="rn">'+esc(r.nom)+'</span><span class="rm">Ouvrir</span></button>';}).join('');
+  }).catch(function(e){var st=$('#ac-st'); if(st)st.textContent=(e&&e.code==='permission-denied')?'Accès refusé : vérifie la connexion administrateur Firebase et les règles.':'Impossible de charger (réseau ?).';});
+}
+
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
 /* ---------- rendu ---------- */
@@ -1033,14 +1207,27 @@ document.addEventListener('click',function(e){
   else if(a==='rec'){var r=state.ventes[t.dataset.id]; if(r)openSheet(r.rue,r.numero);}
   else if(a==='close')closeSheet();
   else if(a==='menu')menuPanel();
-  else if(a==='admoff'){T.admin=false; lsSet('admin',false); closeSheet(); toast('Mode administrateur désactivé');}
+  else if(a==='cas'){casPanel(t.dataset.cid);}
+  else if(a==='addcas'){closeSheet(); onbShow();}
+  else if(a==='onbskip'){lsSet('skipcas',true); var ob=$('#onb'); if(ob)ob.remove();}
+  else if(a==='onbback'){onbShow();}
+  else if(a==='casopen'){setCur(t.dataset.code);}
+  else if(a==='casjoin'){casJoin(t.dataset.cid,t.dataset.tid);}
+  else if(a==='casaff'){casAffPanel(t.dataset.cid,t.dataset.mid);}
+  else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; caseDoc(cid9).collection('membres').doc(t.dataset.mid).set({aff:tid9},{merge:true}).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
+  else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
+  else if(a==='allcas'){allCasPanel();}
+  else if(a==='casvisit'){var cv=t.dataset.cid; if(!casOf(cv))T.cas.push({cid:cv,nom:t.dataset.nom,mid:'',admin:false,visitor:true}); T.ccur=cv; saveCas(); casPanel(cv);}
+  else if(a==='adminlist')adminListPanel();
+  else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
+  else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
   else if(a==='cinc'||a==='cdec'){var cc3=cai(), dd=t.dataset.d, nn=(cc3.n[dd]||0)+(a==='cinc'?1:-1); cc3.n[dd]=Math.max(0,nn); caisseUpdate(); saveCaisse();}
   else if(a==='creset'){if(armed(t)){state.config.caisse=null; saveCaisse(); caissePanel();}}
   else if(a==='pickc'){var cc={nom:t.dataset.nom,code:t.dataset.code,lat:parseFloat(t.dataset.lat),lon:parseFloat(t.dataset.lon),cp:t.dataset.cp}; if(!NT.sel.some(function(x){return x.code===cc.code;}))NT.sel.push(cc); $('#nt-q').value=''; $('#nt-res').innerHTML=''; ntRefresh();}
   else if(a==='unpickc'){NT.sel=NT.sel.filter(function(x){return x.code!==t.dataset.code;}); ntRefresh();}
   else if(a==='newempty'){NT.sel=[]; $('#nt-q').value=''; submitNew();}
-  else if(a==='presetcrev'){var lg=legacy, cd=createTour('Crevans et La Chapelle',null); if(lg){var c0=loadT(cd); c0.ventes=lg.ventes; c0.cfg=Object.assign(defCfg(),lg.config); useT(cd); saveT(cd); if(fs)Object.keys(c0.ventes).forEach(function(k){putVente(c0.ventes[k]);}); putCfg(); render(); legacy=null;} setTimeout(sharePanel,250);}
+  else if(a==='presetcrev'){var lg=legacy, cd=createTour('Crevans et La Chapelle',null); registerTour(cd,'Crevans et La Chapelle'); if(lg){var c0=loadT(cd); c0.ventes=lg.ventes; c0.cfg=Object.assign(defCfg(),lg.config); useT(cd); saveT(cd); if(fs)Object.keys(c0.ventes).forEach(function(k){putVente(c0.ventes[k]);}); putCfg(); render(); legacy=null;}}
   else if(a==='newt')newPanel();
   else if(a==='join'){joinPanel();}
   else if(a==='scan')startScan();
@@ -1068,8 +1255,11 @@ document.addEventListener('click',function(e){
 document.addEventListener('submit',function(e){
   var f=e.target.closest('form[data-f]'); if(!f)return; e.preventDefault();
   if(f.dataset.f==='newt'){submitNew();}
+  else if(f.dataset.f==='onb1'){onbStep1();}
+  else if(f.dataset.f==='onb2'){onbStep2(f.dataset.nom);}
+  else if(f.dataset.f==='casunlock'){casUnlock(f.dataset.cid,$('#cu-pw').value);}
   else if(f.dataset.f==='join'){takeMe(); showJoinErr(''); var jc=$('#jn-code').value; doJoin(jc);}
-  else if(f.dataset.f==='rename'){var rn=$('#rn-nom').value.trim(); var tt2=tourOf(T.cur); if(rn&&tt2){tt2.nom=rn.slice(0,40); lsSet('list',T.list); var cc=T.cur; cloudDo(function(){return docRef(cc).set({nom:tt2.nom},{merge:true});}); drawHeader(); closeSheet(); toast('Renommée');}}
+  else if(f.dataset.f==='rename'){var rn=$('#rn-nom').value.trim(); var tt2=tourOf(T.cur); if(rn&&tt2){tt2.nom=rn.slice(0,40); lsSet('list',T.list); var cc=T.cur; cloudDo(function(){return docRef(cc).set({nom:tt2.nom},{merge:true});}); renameTour(tt2,tt2.nom); drawHeader(); closeSheet(); toast('Renommée');}}
   else if(f.dataset.f==='me'){var mv=$('#me-nom').value.trim().slice(0,30); T.me=mv; lsSet('me',mv); var ac=($('#me-adm')||{}).value; if(ac&&ac.trim())adminTry(ac); T.list.forEach(function(x){if(x.owner){x.par=mv; var cc2=x.code; cloudDo(function(){return docRef(cc2).set({creePar:mv},{merge:true});});}}); lsSet('list',T.list); closeSheet(); toast('Enregistré');}
   else if(f.dataset.f==='addnum'){var v=$('#newnum').value.trim(); if(v){addNumbers(v); $('#newnum').value='';}}
   else if(f.dataset.f==='addlist'){var lt=$('#paste').value.trim(); if(lt){addNumbers(lt); $('#paste').value='';}}

@@ -1,11 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() { return request.auth != null && request.auth.token.email == 'admin@pompiers70.fr'; }
     match /tournees/{code} {
       allow get, create, update, delete: if code.matches('[A-Z0-9]{12}');
+      allow list: if isAdmin();
     }
     match /tournees/{code}/ventes/{id} {
       allow read, write: if code.matches('[A-Z0-9]{12}');
+    }
+    match /casernes/{cid} {
+      allow get, create: if cid.matches('[a-z0-9-]{3,60}');
+      allow update: if cid.matches('[a-z0-9-]{3,60}')
+        && request.resource.data.pub == resource.data.pub
+        && request.resource.data.wrap == resource.data.wrap;
+      allow list, delete: if isAdmin();
+    }
+    match /casernes/{cid}/membres/{mid} {
+      allow read, write: if cid.matches('[a-z0-9-]{3,60}');
+    }
+    match /casernes/{cid}/tournees/{tid} {
+      allow read, write: if cid.matches('[a-z0-9-]{3,60}');
     }
   }
 }
