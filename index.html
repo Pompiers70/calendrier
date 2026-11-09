@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.5</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.6</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.5</p>
+  <p class="sub">Calendriers des pompiers · v4.6</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -497,7 +497,7 @@ function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var
 function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.config); cloudDo(function(){return docRef(code).set({cfg:s},{merge:true});});}
 
 /* gestion des tournées */
-function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Crevans · La Chapelle-lès-Granges'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur;}
+function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Tournée calendriers'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur;}
 function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render();}
 function createTour(nom,geo){
   var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
@@ -699,7 +699,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.5';
+var DBG=[], VERSION='4.6';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
