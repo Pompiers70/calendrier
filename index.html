@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.20</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.21</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.20</p>
+  <p class="sub">Calendriers des pompiers · v4.21</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -555,9 +555,9 @@ function deleteTour(code){
   var t=tourOf(code); if(!canDelete(t))return;
   if(!fs){leaveTour(code,'Tournée supprimée',true); return;}
   toast('Suppression…');
-  docRef(code).set({supprime:true},{merge:true}).then(function(){return colRef(code).get();}).then(function(snap){
+  unregisterCode(code,t.cid).then(function(){return docRef(code).set({supprime:true},{merge:true});}).then(function(){return colRef(code).get();}).then(function(snap){
     return Promise.all(snap.docs.map(function(d){return colRef(code).doc(d.id).delete();}));
-  }).then(function(){unregisterTour(t); leaveTour(code,'Tournée supprimée pour tout le monde',true);}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
+  }).then(function(){leaveTour(code,'Tournée supprimée pour tout le monde',true);}).catch(function(){toast('Suppression impossible : vérifie ta connexion');});
 }
 function toggleRue(id,on){
   var all=allStreets().map(function(s){return s.id;}), cur=(state.config.rues||all).slice(), i=cur.indexOf(id);
@@ -729,7 +729,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.20';
+var DBG=[], VERSION='4.21';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -831,12 +831,21 @@ function defName(){return NT.sel.length?'Tournée '+NT.sel.map(function(c){retur
 function newPanel(){
   NT={sel:[],nom:'',edited:false,busy:false,t:0};
   openPanel(panelHead('Nouvelle tournée','Cherche un village ou un hameau : les rues et les numéros sont récupérés automatiquement.')
-   +'<form data-f="newt"><label class="fld" for="nt-q">Village (Haute-Saône)</label><input type="text" id="nt-q" autocomplete="off" placeholder="Village ou hameau (ex. : Vesoul, Esprels…)"><div id="nt-res"></div><div id="nt-sel" class="chips2"></div>'
+   +'<form data-f="newt"><label class="fld" for="nt-q">Village (Haute-Saône)</label><input type="text" id="nt-q" autocomplete="off" placeholder="Village ou hameau (ex. : Vesoul, Esprels…)"><div id="nt-res"></div><div id="nt-sel" class="chips2"></div><div id="nt-sec"></div>'
    +'<label class="fld" for="nt-nom">Nom de la tournée</label><input type="text" id="nt-nom" autocomplete="off" value="'+esc(defName())+'">'+meField()
    +'<p class="err" id="nt-err" role="alert"></p><p class="hint" id="nt-st" role="status"></p><p class="note" id="nt-dbg"></p><button type="submit" class="primary" id="nt-go" style="margin-top:6px">Créer la tournée</button></form>'
    +'<button type="button" class="mi" data-a="presetcrev" style="margin-top:14px">Crevans et La Chapelle (déjà prêt)</button>');
 }
-function ntRefresh(){var s=$('#nt-sel'); if(s)s.innerHTML=selChips(); var n=$('#nt-nom'); if(n&&!NT.edited)n.value=defName();}
+function ntRefresh(){var s=$('#nt-sel'); if(s)s.innerHTML=selChips(); var n=$('#nt-nom'); if(n&&!NT.edited)n.value=defName(); NT.g=null; var sc=$('#nt-sec'); if(sc){var real=NT.sel.filter(function(c){return c.code;}); sc.innerHTML=real.length?'<label class="cb" style="margin:6px 0 10px"><input type="checkbox" data-a="secchk" id="nt-secchk"><span class="box">✕</span><span>Choisir seulement certaines rues (secteur)</span></label><div id="nt-seclist"></div>':'';}}
+function ntSecLoad(){
+  var box=$('#nt-seclist'); if(!box)return; var sel=NT.sel.filter(function(c){return c.code;});
+  box.innerHTML='<p class="hint">Chargement des rues…</p>';
+  Promise.all(sel.map(function(c){return loadAddresses(c.code).catch(function(){return [];});})).then(function(lists){
+    var g=buildGeo(sel,lists); NT.g=g; var b=$('#nt-seclist'); if(!b)return;
+    b.innerHTML='<div class="dz" style="margin:0 0 10px"><button type="button" class="ghost" data-a="secall">Tout cocher</button><button type="button" class="ghost" data-a="secnone">Tout décocher</button></div>'
+     +g.streets.map(function(s){return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" name="secst" value="'+esc(s.id)+'" checked><span class="box">✕</span><span>'+esc(s.nom)+(g.villages.length>1?' <small>· '+esc(s.v)+'</small>':'')+'</span></label>';}).join('');
+  });
+}
 function ntSearch(q){
   var box=$('#nt-res'); if(!box)return; clearTimeout(NT.t);
   if(q.trim().length<2){box.innerHTML=''; return;}
@@ -854,7 +863,12 @@ function submitNew(){
   var real=sel.filter(function(c){return c.code;}), partial=false;
   Promise.all(sel.map(function(c){return c.code?loadAddresses(c.code).then(function(a){if(a.partial)partial=true; return a;}).catch(function(){return null;}):Promise.resolve([]);})).then(function(lists){
     if(real.length&&lists.every(function(l){return l===null;})){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Impossible de récupérer les adresses. Réessaie, ou crée la tournée sans adresses.'; var dg=$('#nt-dbg'); if(dg)dg.textContent='Détail : '+DBG.slice(-4).join(' | '); var b=$('#nt-go'); b.textContent='Réessayer'; var alt=$('#nt-alt'); if(!alt){b.insertAdjacentHTML('afterend','<button type="button" class="mi" id="nt-alt" data-a="newempty" style="margin-top:10px">Créer sans adresses (j\'ajoute les rues à la main)</button>');} return;}
-    var g=buildGeo(sel,lists.map(function(l){return l||[];})), code=createTour(nom,g);
+    var g=buildGeo(sel,lists.map(function(l){return l||[];}));
+    var chk=$('#nt-secchk'); if(chk&&chk.checked){var ids=[].slice.call(document.querySelectorAll('input[name=secst]:checked')).map(function(x){return x.value;});
+      if(!ids.length){NT.busy=false; go.disabled=false; st.textContent=''; err.textContent='Coche au moins une rue.'; return;}
+      g.streets=g.streets.filter(function(s){return ids.indexOf(s.id)>-1;}); var np={}; g.streets.forEach(function(s){np[s.id]=g.pts[s.id];}); g.pts=np;
+      var vs={}; g.streets.forEach(function(s){vs[s.v]=1;}); g.villages=g.villages.filter(function(v){return vs[v];}); if(!g.villages.length)g.villages=sel.map(function(c){return c.nom;});}
+    var code=createTour(nom,g);
     toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées'):'Tournée créée'); registerTour(code,nom);
   });
 }
@@ -945,10 +959,14 @@ function registerTour(code,nom){
   return Promise.all([tidOf(code),caseDoc(cs.cid).get()]).then(function(r){
     var tid=r[0], d=r[1].data(); if(!d||!d.pub)return;
     return Promise.all([encFor(d.pub,code),encFor(GLOBAL_PUB,code)]).then(function(e){
-      var t=tourOf(code); if(t){t.tid=tid; t.cid=cs.cid; lsSet('list',T.list);}
+      var t=tourOf(code); if(t){t.tid=tid; t.cid=cs.cid; lsSet('list',T.list);} docRef(code).set({cid:cs.cid},{merge:true}).catch(function(){});
       return caseDoc(cs.cid).collection('tournees').doc(tid).set({nom:nom,par:cs.mid||'',parNom:T.me||'',ts:Date.now(),encA:e[0],encG:e[1],adm:!!lsGet('ak:'+cs.cid,null)});
     });
   }).catch(function(){});
+}
+function unregisterCode(code,cidHint){
+  if(!fs)return Promise.resolve();
+  return Promise.all([tidOf(code),docRef(code).get().catch(function(){return null;})]).then(function(r){var d=(r[1]&&r[1].exists)?(r[1].data()||{}):{}; var cid=d.cid||cidHint; if(!cid)return; return caseDoc(cid).collection('tournees').doc(r[0]).delete();}).catch(function(){});
 }
 function unregisterTour(t){if(fs&&t&&t.cid&&t.tid)caseDoc(t.cid).collection('tournees').doc(t.tid).delete().catch(function(){});}
 function renameTour(t,nom){if(fs&&t&&t.cid&&t.tid)caseDoc(t.cid).collection('tournees').doc(t.tid).set({nom:nom},{merge:true}).catch(function(){});}
@@ -1020,7 +1038,7 @@ function casPanel(cid){
 function casLoad(cid){
   var cs=casOf(cid), box=$('#cas-body'); if(!fs){box.innerHTML='<p class="empty">Synchronisation non activée.</p>'; return;}
   Promise.all([caseDoc(cid).collection('tournees').get(),caseDoc(cid).collection('membres').get(),Promise.all(T.list.map(function(t){return t.tid?Promise.resolve(t.tid):tidOf(t.code).then(function(x){t.tid=x; return x;});}))]).then(function(r){
-    lsSet('list',T.list);
+    var tours0=r[0].docs.map(function(d){return d.id;}); T.list.forEach(function(t){if(!t.cid&&t.tid&&tours0.indexOf(t.tid)>-1)t.cid=cid;}); lsSet('list',T.list);
     var tours=r[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}).filter(function(x){return !x.supprime;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});
     var mem=r[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
     mem.sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});
@@ -1035,13 +1053,13 @@ function casLoad(cid){
     h+=mem.length?mem.map(function(m){var p=principalOf(m,tours), me=cs.mid===m.id;
       return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+'</small></span>'+(adm&&!m.admin?'<div class="lks" style="margin:0">'+(tours.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'" style="color:var(--accent)">Retirer</button></div>':(adm&&tours.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):'<p class="empty">Aucun membre.</p>';
     var b=$('#cas-body'); if(b)b.innerHTML=h;
-    casCache={tours:tours,mem:mem};
+    casCache={tours:tours,mem:mem}; if(adm&&!cs.visitor!==false||adm)casClean(cid,tours);
   }).catch(function(){var b=$('#cas-body'); if(b)b.innerHTML='<p class="empty">Impossible de charger la caserne (réseau ou règles Firebase).</p>';});
 }
 var casCache=null;
 function casJoin(cid,tid){
   var e=casCache&&casCache.tours.filter(function(x){return x.id===tid;})[0]; if(!e)return;
-  decKeyFor(cid).then(function(k){if(!k)throw 0; return decWith(k.key,e[k.f]);}).then(function(code){return joinCode(code);}).then(function(){closeSheet(); toast('Tournée rejointe');}).catch(function(){toast('Impossible de rejoindre : code administrateur requis');});
+  decKeyFor(cid).then(function(k){if(!k)throw 0; return decWith(k.key,e[k.f]);}).then(function(code){return joinCode(code).then(function(){var t=tourOf(code); if(t){t.cid=cid; t.tid=tid; lsSet('list',T.list);}});}).then(function(){closeSheet(); toast('Tournée rejointe');}).catch(function(){toast('Impossible de rejoindre : code administrateur requis');});
 }
 function casAffPanel(cid,mid){
   var m=casCache&&casCache.mem.filter(function(x){return x.id===mid;})[0]; if(!m)return;
@@ -1170,6 +1188,15 @@ function leaveWarn(cid){
   if(!lsGet('ak:'+cid,null))return '';
   var n=casCache&&casCache.mem?casCache.mem.filter(function(m){return m.admin;}).length:0;
   return n<=1?'<p><b>Tu es le seul administrateur.</b> Une fois parti, plus personne ne pourra gérer cette caserne sans le code administrateur.</p>':'<p>Tu perds tes droits d\'administrateur sur cette caserne.</p>';
+}
+
+var cleaning={};
+function casClean(cid,tours){
+  if(cleaning[cid]||!tours.length)return; cleaning[cid]=true;
+  decKeyFor(cid).then(function(k){
+    if(!k)return;
+    return Promise.all(tours.map(function(e){return decWith(k.key,e[k.f]).then(function(code){return docRef(code).get();}).then(function(s){var d=s.exists?(s.data()||{}):null; if(!d||d.supprime){return caseDoc(cid).collection('tournees').doc(e.id).delete().then(function(){return 1;});} return 0;}).catch(function(){return 0;});}));
+  }).then(function(r){cleaning[cid]=false; if(r&&r.some(function(x){return x;})&&$('#cas-body'))casLoad(cid);}).catch(function(){cleaning[cid]=false;});
 }
 
 
@@ -1473,6 +1500,7 @@ document.addEventListener('click',function(e){
   else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; affectMember(cid9,t.dataset.mid,tid9).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
+  else if(a==='secall'||a==='secnone'){[].forEach.call(document.querySelectorAll('input[name=secst]'),function(x){x.checked=(a==='secall');});}
   else if(a==='tourmenu'){tourMenuPanel(t.dataset.cid,t.dataset.tid);}
   else if(a==='casunaff'){casUnaff(t.dataset.cid,t.dataset.mid);}
   else if(a==='casmulti'){casMultiPanel(t.dataset.cid);}
@@ -1535,6 +1563,7 @@ document.addEventListener('submit',function(e){
 });
 document.addEventListener('change',function(e){var t=e.target;
   if(t.dataset&&t.dataset.a==='rue'){toggleRue(t.dataset.id,t.checked); return;}
+  if(t.dataset&&t.dataset.a==='secchk'){var sl=$('#nt-seclist'); if(sl){if(t.checked){ntSecLoad();}else sl.innerHTML='';} return;}
   if(t.dataset&&t.dataset.a==='chq'){cai().ch[t.dataset.id]=t.checked; caisseUpdate(); saveCaisse(); return;}
   if(t.name==='pay'&&t.checked)document.querySelectorAll('#sheet input[name=pay]').forEach(function(x){if(x!==t)x.checked=false;});
   if(t.name==='st'){$('#vf').hidden=t.value!=='vendu';}
