@@ -246,12 +246,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.8</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.9</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.8</p>
+  <p class="sub">Calendriers des pompiers · v3.9</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -413,7 +413,7 @@ window.addEventListener('resize',function(){if(state.view==='carte')mapDraw();})
 var LS='cal2:';
 function lsGet(k,d){try{var v=localStorage.getItem(LS+k); return v?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v));}catch(e){}}
-var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me',''),left:lsGet('left',[])};
+var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me',''),left:lsGet('left',[]),admin:lsGet('admin',false)};
 var cache={},subs={},fs=null,scanSt={stream:null,timer:0,on:false},scriptP={};
 var SYNC_TXT={loading:'Connexion à la tournée…',local:'Synchronisation non activée : ventes enregistrées sur ce téléphone seulement',ok:'Synchronisé avec la tournée',slow:'Connexion lente : les données ne sont peut-être pas à jour',err:'Envoi impossible pour l\'instant, réessaie',perm:'Firebase refuse l\'accès : vérifie que les règles sont bien publiées',offline:'Hors connexion : tes ventes partiront dès que le réseau revient'};
 function setSync(s){state.sync=s; var e=$('#sync'); if(e)e.textContent=T.cur?(SYNC_TXT[s]||''):'';}
@@ -516,7 +516,7 @@ function leaveTour(code,msg,forget){
   toast(msg||'Tournée quittée');
 }
 function deleteTour(code){
-  var t=tourOf(code); if(!t||!t.owner)return;
+  var t=tourOf(code); if(!t||!(t.owner||T.admin))return;
   if(!fs){leaveTour(code,'Tournée supprimée',true); return;}
   toast('Suppression…');
   docRef(code).set({supprime:true},{merge:true}).then(function(){return colRef(code).get();}).then(function(snap){
@@ -541,7 +541,7 @@ function menuPanel(){
   openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
    +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
-   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir'))+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+((tourOf(T.cur)||{}).owner?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
+   +(T.left.length?'<hr class="sep"><p class="hint" style="margin:0 0 8px">Tournées quittées</p>'+T.left.map(function(l){return '<button type="button" class="mi" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'')+'<hr class="sep">'+mi('me','Mon prénom : '+esc(T.me||'à choisir')+(T.admin?' (administrateur)':''))+(T.cur?mi('leave','Quitter cette tournée (tu pourras revenir)')+((T.admin||(tourOf(T.cur)||{}).owner)?'<button type="button" class="mi danger" data-a="delete">Supprimer cette tournée pour tout le monde</button>':''):''));
 }
 function joinPanel(){
   openPanel(panelHead('Rejoindre une tournée','Tape le code ou scanne le QR code d\'un collègue.')
@@ -571,7 +571,13 @@ function ruesPanel(){
    +allStreets().map(function(s){var on=!r||r.indexOf(s.id)>-1; return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="rue" data-id="'+s.id+'"'+(on?' checked':'')+'><span class="box">✕</span><span>'+esc(s.nom)+'</span></label>';}).join(''));
 }
 function renamePanel(){var t=tourOf(T.cur); openPanel(panelHead('Renommer la tournée','')+'<form data-f="rename"><label class="fld" for="rn-nom">Nom</label><input type="text" id="rn-nom" autocomplete="off" value="'+esc(t?t.nom:'')+'"><button type="submit" class="primary">Enregistrer</button></form>');}
-function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'"><button type="submit" class="primary">Enregistrer</button></form>');}
+var ADMIN_HASH='fecf04a0b485b9f3031cb6b7ec0b3fc648bff2927d9d998f23c2106b48b7e2d7';
+function adminTry(code){
+  var v=String(code).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!(window.crypto&&crypto.subtle)){toast('Code administrateur indisponible ici'); return;}
+  crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)).then(function(b){var hx=Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2);}).join(''); if(hx===ADMIN_HASH){T.admin=true; lsSet('admin',true); toast('Mode administrateur activé');} else toast('Code administrateur incorrect');});
+}
+function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
 function welcomeHTML(){return '<h2 style="margin-top:20px">Bienvenue</h2><p class="hint" style="font-size:17px">Une tournée, c\'est une liste de rues et des ventes partagées entre ceux qui ont son code.</p><button type="button" class="primary" data-a="newt">Créer ma tournée</button><button type="button" class="btn" data-a="join" style="width:100%;margin-top:12px;min-height:58px">J\'ai un code ou un QR code</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
@@ -646,7 +652,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.8';
+var DBG=[], VERSION='3.9';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null;
 function loadDB(){
@@ -1003,6 +1009,7 @@ document.addEventListener('click',function(e){
   else if(a==='rec'){var r=state.ventes[t.dataset.id]; if(r)openSheet(r.rue,r.numero);}
   else if(a==='close')closeSheet();
   else if(a==='menu')menuPanel();
+  else if(a==='admoff'){T.admin=false; lsSet('admin',false); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
   else if(a==='cinc'||a==='cdec'){var cc3=cai(), dd=t.dataset.d, nn=(cc3.n[dd]||0)+(a==='cinc'?1:-1); cc3.n[dd]=Math.max(0,nn); caisseUpdate(); saveCaisse();}
   else if(a==='creset'){if(armed(t)){state.config.caisse=null; saveCaisse(); caissePanel();}}
@@ -1037,7 +1044,7 @@ document.addEventListener('submit',function(e){
   if(f.dataset.f==='newt'){submitNew();}
   else if(f.dataset.f==='join'){takeMe(); showJoinErr(''); var jc=$('#jn-code').value; doJoin(jc);}
   else if(f.dataset.f==='rename'){var rn=$('#rn-nom').value.trim(); var tt2=tourOf(T.cur); if(rn&&tt2){tt2.nom=rn.slice(0,40); lsSet('list',T.list); var cc=T.cur; cloudDo(function(){return docRef(cc).set({nom:tt2.nom},{merge:true});}); drawHeader(); closeSheet(); toast('Renommée');}}
-  else if(f.dataset.f==='me'){var mv=$('#me-nom').value.trim().slice(0,30); T.me=mv; lsSet('me',mv); T.list.forEach(function(x){if(x.owner){x.par=mv; var cc2=x.code; cloudDo(function(){return docRef(cc2).set({creePar:mv},{merge:true});});}}); lsSet('list',T.list); closeSheet(); toast('Enregistré');}
+  else if(f.dataset.f==='me'){var mv=$('#me-nom').value.trim().slice(0,30); T.me=mv; lsSet('me',mv); var ac=($('#me-adm')||{}).value; if(ac&&ac.trim())adminTry(ac); T.list.forEach(function(x){if(x.owner){x.par=mv; var cc2=x.code; cloudDo(function(){return docRef(cc2).set({creePar:mv},{merge:true});});}}); lsSet('list',T.list); closeSheet(); toast('Enregistré');}
   else if(f.dataset.f==='addnum'){var v=$('#newnum').value.trim(); if(v){addNumbers(v); $('#newnum').value='';}}
   else if(f.dataset.f==='addlist'){var lt=$('#paste').value.trim(); if(lt){addNumbers(lt); $('#paste').value='';}}
   else if(f.dataset.f==='addstreet'){var nom=$('#ns-nom').value.trim(); if(!nom)return;
