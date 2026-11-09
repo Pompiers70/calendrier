@@ -231,15 +231,27 @@ input[type=text]{width:100%}
 #splash .sp-t{text-align:center; font:700 26px var(--font-display); text-transform:uppercase; letter-spacing:.05em; margin:22px 0 0}
 #splash .sp-b{position:absolute; left:0; right:0; bottom:calc(26px + env(safe-area-inset-bottom)); text-align:center; font-size:14px; margin:0; opacity:.9}
 @media (prefers-reduced-motion:no-preference){#splash img{animation:pop .6s ease-out}@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:none;opacity:1}}}
+.ch3{font:700 20px var(--font-display); text-transform:uppercase; letter-spacing:.04em; margin:18px 0 6px}
+.dn{display:flex; align-items:center; gap:8px; min-height:58px; border-bottom:1px solid var(--line)}
+.dv{flex:1; font-weight:700; font-size:16px; white-space:nowrap}
+.dn button{width:52px; height:48px; border:2px solid var(--fg); border-radius:10px; background:var(--surface); font-size:26px; font-weight:700; line-height:1}
+.dn b{min-width:32px; text-align:center; font-size:22px; font-variant-numeric:tabular-nums}
+.ds{width:64px; text-align:right; color:var(--muted); font-size:14px}
+.csum{position:sticky; top:-14px; margin-top:-2px; z-index:3; background:var(--surface); padding:14px 0 4px; border-bottom:2px solid var(--line)}
+.cl{display:grid; grid-template-columns:1fr auto; gap:0 8px; padding:4px 10px; border-left:6px solid var(--line); margin-bottom:5px; font-size:15px}
+.cl small{grid-column:1/-1; font-weight:700; font-size:14px}
+.cl.ok{border-color:#1a7f37} .cl.ok small{color:#1a7f37}
+.cl.bad{border-color:var(--accent)} .cl.bad small{color:var(--accent)}
+.cl.warn{border-color:#b26a00} .cl.warn small{color:#b26a00}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.6</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.8</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.6</p>
+  <p class="sub">Calendriers des pompiers · v3.8</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -465,6 +477,7 @@ function subscribe(code){
     var c=loadT(code), t=tourOf(code);
     if(sn.exists){var d=sn.data()||{};
       if(d.supprime){if(t)leaveTour(code,'Cette tournée a été supprimée',true); return;}
+      if(t){if(d.creePar&&t.par!==d.creePar){t.par=d.creePar; lsSet('list',T.list);} else if(!d.creePar&&t.owner&&T.me){t.par=T.me; lsSet('list',T.list); cloudDo(function(){return docRef(code).set({creePar:T.me},{merge:true});});}}
       if(d.nom&&t&&t.nom!==d.nom){t.nom=d.nom; lsSet('list',T.list); drawHeader();}
       if(typeof d.cfg==='string'||typeof d.geo==='string'){try{var cfg=typeof d.cfg==='string'?Object.assign(defCfg(),JSON.parse(d.cfg)):c.cfg; var old=c.cfg.geo; cfg.geo=typeof d.geo==='string'?JSON.parse(d.geo):old; c.cfg=cfg; if(code===T.cur){state.config=cfg; if(cfg.geo!==old||JSON.stringify(old)!==JSON.stringify(cfg.geo))applyGeo(cfg);} saveT(code); if(code===T.cur)requestRender();}catch(e){}}
     }else if(!sn.metadata.fromCache&&t){cloudDo(function(){return docRef(code).set({nom:t.nom,cfg:cfgJSON(c.cfg),geo:c.cfg.geo?JSON.stringify(c.cfg.geo):null,creeLe:Date.now()});});}
@@ -478,8 +491,8 @@ function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.
 function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Crevans · La Chapelle-lès-Granges'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur;}
 function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render();}
 function createTour(nom,geo){
-  var code=genCode(); T.list.push({code:code,nom:nom,owner:true}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
-  if(fs){subscribe(code); cloudDo(function(){return docRef(code).set({nom:nom,cfg:cfgJSON(c.cfg),geo:geo?JSON.stringify(geo):null,creeLe:Date.now()});});}
+  var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
+  if(fs){subscribe(code); cloudDo(function(){return docRef(code).set({nom:nom,cfg:cfgJSON(c.cfg),geo:geo?JSON.stringify(geo):null,creePar:T.me||'',creeLe:Date.now()});});}
   saveT(code); setCur(code); return code;
 }
 function joinCode(raw){
@@ -490,7 +503,7 @@ function joinCode(raw){
     if(!fs)return rej('La synchronisation n\'est pas activée dans cette appli.');
     docRef(code).get().then(function(s){
       if(!s.exists)return rej('Code inconnu. Vérifie les lettres et les chiffres.');
-      var d=s.data()||{}; if(d.supprime){T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); return rej('Cette tournée a été supprimée.');} var lf=T.left.filter(function(x){return x.code===code;})[0]; T.list.push({code:code,nom:d.nom||(lf&&lf.nom)||'Tournée',owner:!!(lf&&lf.owner)}); T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
+      var d=s.data()||{}; if(d.supprime){T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); return rej('Cette tournée a été supprimée.');} var lf=T.left.filter(function(x){return x.code===code;})[0]; T.list.push({code:code,nom:d.nom||(lf&&lf.nom)||'Tournée',owner:!!(lf&&lf.owner),par:d.creePar||''}); T.left=T.left.filter(function(x){return x.code!==code;}); lsSet('left',T.left); lsSet('list',T.list); loadT(code); subscribe(code); setCur(code); res(code);
     }).catch(function(){rej('Impossible de vérifier le code. Vérifie ta connexion.');});
   });
 }
@@ -524,7 +537,7 @@ function takeMe(){var e=$('#f-me'); if(e&&e.value.trim()){T.me=e.value.trim().sl
 function mi(a,label,extra){return '<button type="button" class="mi" data-a="'+a+'"'+(extra||'')+'>'+label+'</button>';}
 function menuPanel(){
   var list=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
-    return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
+    return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
   openPanel(panelHead('Tournées','')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
    +mi('newt','+ Nouvelle tournée')+mi('join','Rejoindre avec un code ou un QR code')
    +(T.cur?'<hr class="sep">'+mi('share','Partager cette tournée (QR code)')+mi('rues','Rues de cette tournée')+mi('rename','Renommer la tournée'):'')
@@ -580,6 +593,7 @@ function startScan(){
 }
 
 function init(){
+  T.list.forEach(function(t){if(t.owner===undefined)t.owner=true;}); lsSet('list',T.list);
   try{var lj=JSON.parse(localStorage.getItem(KEY)||'null'); if(lj&&lj.ventes&&Object.keys(lj.ventes).length&&!T.list.length)legacy=lj;}catch(e){}
   T.list.forEach(function(t){loadT(t.code);});
   if(T.cur&&!tourOf(T.cur))T.cur=T.list[0]?T.list[0].code:null;
@@ -632,7 +646,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.6';
+var DBG=[], VERSION='3.8';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null;
 function loadDB(){
@@ -716,7 +730,7 @@ function buildGeo(communes,lists){
 
 /* écran « nouvelle tournée » */
 function selChips(){return NT.sel.map(function(c){return '<span class="chip2">'+esc(c.nom)+'<button type="button" data-a="unpickc" data-code="'+c.code+'" aria-label="Retirer '+esc(c.nom)+'">✕</button></span>';}).join('');}
-function defName(){return NT.sel.length?NT.sel.map(function(c){return c.nom;}).join(' + '):'Tournée n°'+(T.list.length+1);}
+function defName(){return NT.sel.length?'Tournée '+NT.sel.map(function(c){return c.nom;}).join(' + '):'Tournée n°'+(T.list.length+1);}
 function newPanel(){
   NT={sel:[],nom:'',edited:false,busy:false,t:0};
   openPanel(panelHead('Nouvelle tournée','Cherche le village : les rues et les numéros sont récupérés automatiquement.')
@@ -746,6 +760,57 @@ function submitNew(){
     var g=buildGeo(sel,lists.map(function(l){return l||[];})), code=createTour(nom,g);
     toast(g.streets.length?pl(g.streets.length,'rue récupérée','rues récupérées'):'Tournée créée'); setTimeout(sharePanel,250);
   });
+}
+
+/* ---------- fin de tournée : comptage de la caisse ---------- */
+var BILLETS=[500,200,100,50,20,10,5], PIECES=[2,1,0.5,0.2,0.1,0.05,0.02,0.01], CT=0;
+function cai(){var c=state.config.caisse; if(!c)c=state.config.caisse={n:{},ch:{}}; c.n=c.n||{}; c.ch=c.ch||{}; return c;}
+function cts(x){return Math.round(x*100);}
+function dkey(d){return String(d).replace('.','_');}
+function dlabel(d,b){return (b?(d>=5?'Billet de ':'Pièce de '):'')+(d>=1?String(d):String(Math.round(d*100))+' c')+(d>=1?' €':'');}
+function cashCts(){var c=cai(),t=0; BILLETS.concat(PIECES).forEach(function(d){t+=(c.n[d]||0)*cts(d);}); return t;}
+function chequesList(){return Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu'&&r.paiement==='cheque';}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});}
+function expectedC(){var e={cash:0,cheque:0,nd:0}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu')return; var m=cts(r.montant||0); if(r.paiement==='especes')e.cash+=m; else if(r.paiement==='cheque')e.cheque+=m; else e.nd+=m;}); return e;}
+function checkedCts(){var c=cai(),t=0,n=0; chequesList().forEach(function(r){if(c.ch[r.id]){t+=cts(r.montant||0); n++;}}); return {t:t,n:n};}
+function gap(d){return d===0?'Compte bon ✓':(d<0?'Il manque '+eur(-d/100):'Il y a '+eur(d/100)+' en trop');}
+function cline(label,got,exp,note){var d=got-exp, cls=d===0?'ok':(d<0?'bad':'warn'); return '<div class="cl '+cls+'"><span>'+label+'</span><b>'+eur(got/100)+' sur '+eur(exp/100)+'</b><small>'+gap(d)+(note?' · '+note:'')+'</small></div>';}
+function caisseSummary(){
+  var ex=expectedC(), cash=cashCts(), ck=checkedCts(), L=chequesList();
+  return cline('Espèces',cash,ex.cash)+cline('Chèques ('+ck.n+' sur '+L.length+' cochés)',ck.t,ex.cheque)+cline('Total',cash+ck.t,ex.cash+ex.cheque+ex.nd,ex.nd?'dont '+eur(ex.nd/100)+' sans moyen de paiement':'');
+}
+function caisseUpdate(){
+  var c=cai(); BILLETS.concat(PIECES).forEach(function(d){var k=dkey(d), n=c.n[d]||0, a=$('#cn-'+k), b=$('#cs-'+k); if(a)a.textContent=n; if(b)b.textContent=n?eur(n*d):'';});
+  var s=$('#csum'); if(s)s.innerHTML=caisseSummary();
+}
+function saveCaisse(){saveLocal(); clearTimeout(CT); var code=T.cur; CT=setTimeout(function(){if(code===T.cur)cloudDo(function(){return docRef(code).set({cfg:cfgJSON(state.config)},{merge:true});});},700);}
+function drow(d){var k=dkey(d); return '<div class="dn"><span class="dv">'+dlabel(d,true)+'</span><button type="button" data-a="cdec" data-d="'+d+'" aria-label="Retirer un">−</button><b id="cn-'+k+'">0</b><button type="button" data-a="cinc" data-d="'+d+'" aria-label="Ajouter un">+</button><span class="ds" id="cs-'+k+'"></span></div>';}
+function caissePanel(){
+  var L=chequesList(), c=cai();
+  openPanel(panelHead('Fin de tournée','Touche chaque billet, chaque pièce et chaque chèque que tu as devant toi.')
+   +'<div class="csum" id="csum"></div>'
+   +'<h3 class="ch3">Billets</h3>'+BILLETS.map(drow).join('')
+   +'<h3 class="ch3">Pièces</h3>'+PIECES.map(drow).join('')
+   +'<h3 class="ch3">Chèques</h3>'+(L.length?L.map(function(r){var s=streetById(r.rue); return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="chq" data-id="'+esc(r.id)+'"'+(c.ch[r.id]?' checked':'')+'><span class="box">✕</span><span>'+esc(r.nom||'Sans nom')+' · '+eur(r.montant)+'<small style="display:block;color:var(--muted)">'+esc(r.numero)+' '+esc(s?s.nom:r.rueNom||'')+'</small></span></label>';}).join(''):'<p class="empty">Aucun chèque enregistré.</p>')
+   +'<button type="button" class="mi" data-a="creset" style="margin-top:14px">Tout remettre à zéro</button>');
+  caisseUpdate();
+}
+function recapRows(rows){
+  var c=cai(), ex=expectedC(), cash=cashCts(), L=chequesList(), ck=checkedCts();
+  function f(x){return String(Math.round(x*100)/100).replace('.',',');}
+  rows.push([]); rows.push(['RÉCAPITULATIF FIN DE TOURNÉE']); rows.push(['','Nombre','Montant (€)']);
+  if(cash>0){
+    rows.push(['Billets']); BILLETS.forEach(function(d){var n=c.n[d]||0; if(n)rows.push([dlabel(d,true),n,f(n*d)]);});
+    rows.push(['Pièces']); PIECES.forEach(function(d){var n=c.n[d]||0; if(n)rows.push([dlabel(d,true),n,f(n*d)]);});
+    rows.push(['Total espèces comptées','',f(cash/100)]); rows.push(['Espèces enregistrées dans les ventes','',f(ex.cash/100)]); rows.push(['Écart espèces','',f((cash-ex.cash)/100)]);
+  }
+  var use=ck.n?L.filter(function(r){return c.ch[r.id];}):L, g={};
+  use.forEach(function(r){var k=cts(r.montant||0); g[k]=(g[k]||0)+1;});
+  rows.push([ck.n?'Chèques cochés':'Chèques enregistrés (pas de comptage)']);
+  Object.keys(g).map(Number).sort(function(a,b){return a-b;}).forEach(function(k){rows.push(['Chèques de '+f(k/100)+' €',g[k],f(g[k]*k/100)]);});
+  var tc=use.reduce(function(s,r){return s+cts(r.montant||0);},0);
+  rows.push(['Total chèques',use.length,f(tc/100)]);
+  if(ck.n){rows.push(['Chèques enregistrés dans les ventes',L.length,f(ex.cheque/100)]); rows.push(['Écart chèques','',f((ck.t-ex.cheque)/100)]);}
+  if(cash>0||ck.n){rows.push(['TOTAL COMPTÉ','',f((cash+ck.t)/100)]); rows.push(['TOTAL ENREGISTRÉ','',f((ex.cash+ex.cheque+ex.nd)/100)]); rows.push(['ÉCART TOTAL','',f((cash+ck.t-ex.cash-ex.cheque-ex.nd)/100)]);}
 }
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
@@ -819,6 +884,7 @@ function totauxHTML(){
   VILLAGES.forEach(function(v){var x=t[v],s=x.especes+x.cheque+x.nd; byV[v]=s; grand+=s; nb+=x.n; cols.concat('nd').forEach(function(c){byPay[c]+=x[c];});});
   function line(n,sub,val,max){return '<div class="line"><span class="n">'+n+(sub?'<small>'+sub+'</small>':'')+'</span><span class="v">'+eur(val)+'</span><div class="bar"><i style="width:'+(max>0?Math.round(val/max*100):0)+'%"></i></div></div>';}
   var html='<h2 style="margin-top:14px">Totaux</h2><div class="big"><span class="lbl">Total vendu</span><strong>'+eur(grand)+'</strong><span>'+pl(nb,'calendrier vendu','calendriers vendus')+'</span></div>';
+  html+='<button type="button" class="btn red" data-a="caisse" style="width:100%;margin-top:14px;min-height:58px">Fin de tournée : compter la caisse</button>';
   if(T.list.length>1)html+=toursBlock(line);
   html+='<h2>Par village</h2>'+VILLAGES.map(function(v){return line(v,pl(t[v].n,'vente','ventes'),byV[v],grand);}).join('');
   html+='<h2>Par moyen de paiement</h2>'+cols.map(function(c){return line(PAY[c],'',byPay[c],grand);}).join('');
@@ -909,6 +975,7 @@ function exportCsv(){
   var rows=[['Village','Rue','Numéro','Nom','Montant','Paiement','Date']];
   Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu';}).sort(function(a,b){return (a.ts||0)-(b.ts||0);}).forEach(function(r){
     var s=streetById(r.rue); rows.push([villageOf(r.rue),s?s.nom:r.rueNom,r.numero,r.nom,String(r.montant==null?'':r.montant).replace('.',','),PAY[r.paiement]||'',new Date(r.ts||Date.now()).toLocaleDateString('fr-FR')]);});
+  recapRows(rows);
   var csv='﻿'+rows.map(function(r){return r.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');
   saveFile('calendriers-ventes.csv',csv,'text/csv');
 }
@@ -936,6 +1003,9 @@ document.addEventListener('click',function(e){
   else if(a==='rec'){var r=state.ventes[t.dataset.id]; if(r)openSheet(r.rue,r.numero);}
   else if(a==='close')closeSheet();
   else if(a==='menu')menuPanel();
+  else if(a==='caisse')caissePanel();
+  else if(a==='cinc'||a==='cdec'){var cc3=cai(), dd=t.dataset.d, nn=(cc3.n[dd]||0)+(a==='cinc'?1:-1); cc3.n[dd]=Math.max(0,nn); caisseUpdate(); saveCaisse();}
+  else if(a==='creset'){if(armed(t)){state.config.caisse=null; saveCaisse(); caissePanel();}}
   else if(a==='pickc'){var cc={nom:t.dataset.nom,code:t.dataset.code,lat:parseFloat(t.dataset.lat),lon:parseFloat(t.dataset.lon),cp:t.dataset.cp}; if(!NT.sel.some(function(x){return x.code===cc.code;}))NT.sel.push(cc); $('#nt-q').value=''; $('#nt-res').innerHTML=''; ntRefresh();}
   else if(a==='unpickc'){NT.sel=NT.sel.filter(function(x){return x.code!==t.dataset.code;}); ntRefresh();}
   else if(a==='newempty'){NT.sel=[]; $('#nt-q').value=''; submitNew();}
@@ -967,7 +1037,7 @@ document.addEventListener('submit',function(e){
   if(f.dataset.f==='newt'){submitNew();}
   else if(f.dataset.f==='join'){takeMe(); showJoinErr(''); var jc=$('#jn-code').value; doJoin(jc);}
   else if(f.dataset.f==='rename'){var rn=$('#rn-nom').value.trim(); var tt2=tourOf(T.cur); if(rn&&tt2){tt2.nom=rn.slice(0,40); lsSet('list',T.list); var cc=T.cur; cloudDo(function(){return docRef(cc).set({nom:tt2.nom},{merge:true});}); drawHeader(); closeSheet(); toast('Renommée');}}
-  else if(f.dataset.f==='me'){var mv=$('#me-nom').value.trim().slice(0,30); T.me=mv; lsSet('me',mv); closeSheet(); toast('Enregistré');}
+  else if(f.dataset.f==='me'){var mv=$('#me-nom').value.trim().slice(0,30); T.me=mv; lsSet('me',mv); T.list.forEach(function(x){if(x.owner){x.par=mv; var cc2=x.code; cloudDo(function(){return docRef(cc2).set({creePar:mv},{merge:true});});}}); lsSet('list',T.list); closeSheet(); toast('Enregistré');}
   else if(f.dataset.f==='addnum'){var v=$('#newnum').value.trim(); if(v){addNumbers(v); $('#newnum').value='';}}
   else if(f.dataset.f==='addlist'){var lt=$('#paste').value.trim(); if(lt){addNumbers(lt); $('#paste').value='';}}
   else if(f.dataset.f==='addstreet'){var nom=$('#ns-nom').value.trim(); if(!nom)return;
@@ -975,6 +1045,7 @@ document.addEventListener('submit',function(e){
 });
 document.addEventListener('change',function(e){var t=e.target;
   if(t.dataset&&t.dataset.a==='rue'){toggleRue(t.dataset.id,t.checked); return;}
+  if(t.dataset&&t.dataset.a==='chq'){cai().ch[t.dataset.id]=t.checked; caisseUpdate(); saveCaisse(); return;}
   if(t.name==='pay'&&t.checked)document.querySelectorAll('#sheet input[name=pay]').forEach(function(x){if(x!==t)x.checked=false;});
   if(t.name==='st'){$('#vf').hidden=t.value!=='vendu';}
 });
