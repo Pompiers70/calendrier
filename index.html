@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.7</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.8</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.7</p>
+  <p class="sub">Calendriers des pompiers · v5.8</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -739,7 +739,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.7';
+var DBG=[], VERSION='5.8';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1256,7 +1256,7 @@ function casRender(cid,tours,mem){
     if(adm&&!cs.visitor)h+='<div class="mg" style="margin-top:6px"><button type="button" class="mi" data-a="cashisto" data-cid="'+cid+'">Historique</button>'+(tl.length?'<button type="button" class="mi" data-a="casclot" data-cid="'+cid+'">Clôturer l\'année (toutes)</button>':'')+'<button type="button" class="mi" data-a="casrefaire" data-cid="'+cid+'">Refaire les tournées</button>'+'</div>';
     h+='<h2>Les membres</h2>';
     h+=ml.length?ml.map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id;
-      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+(lastCo(m.seen,me,m.last)?'<br>'+lastCo(m.seen,me,m.last):'')+'</small></span>'+(adm&&(!m.admin||!me)?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'"'+(m.admin?' data-adm="1"':'')+' style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
+      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+(lastCo(m,me,'c'+cid+m.id)?'<br>'+lastCo(m,me,'c'+cid+m.id):'')+'</small></span>'+(adm&&(!m.admin||!me)?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'"'+(m.admin?' data-adm="1"':'')+' style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
     var b=$('#cas-body'); if(b)b.innerHTML=h;
     if(tours&&mem){casCache={tours:tours,mem:mem}; if(adm)casClean(cid,tours);}
 }
@@ -1426,7 +1426,8 @@ function casClean(cid,tours){
 var PID=lsGet('pid',null); if(!PID){PID=genCode(); lsSet('pid',PID);}
 var PRES={t:{},c:{}}, NOTIFS=lsGet('notifs',[]), BEAT=120000, ONL=300000, vieOn=false;
 function isOn(seen){return !!seen&&Date.now()-seen<ONL;}
-function lastCo(seen,me,last){return (me||isOn(seen))?'':'Dernière connexion : '+ago(last||seen,false);}
+function noteGone(prev,cur,pre){var g=lsGet('gone',{}), ch=false; Object.keys(cur).forEach(function(i){var a=prev&&prev[i], b=cur[i]; if(a&&isOn(a.seen)&&!isOn(b.seen)&&!b.last){g[pre+i]=Date.now(); ch=true;} if(b&&isOn(b.seen)&&g[pre+i]){delete g[pre+i]; ch=true;}}); if(ch)lsSet('gone',g);}
+function lastCo(x,me,key){if(me||isOn(x.seen))return ''; var t=x.last||x.seen||(lsGet('gone',{})[key])||0; return 'Dernière connexion : '+ago(t,false);}
 function ago(seen,me){
   if(me)return 'en ce moment'; if(!seen)return 'inconnue';
   var s=Math.max(1,Math.round((Date.now()-seen)/1000));
@@ -1482,7 +1483,7 @@ function subscribePres(code){
   var first=true;
   return docRef(code).collection('pres').onSnapshot(function(snap){
     var m={}, ids=[], names={}; snap.docs.forEach(function(d){var x=d.data()||{}; m[d.id]=x; ids.push(d.id); names[d.id]=x.prenom;});
-    PRES.t[code]=m; var t=tourOf(code); if(t)checkNew('t:'+code,ids,'la tournée « '+t.nom+' »',names,t.owner?{selfId:PID}:null);
+    noteGone(PRES.t[code],m,'t'+code); PRES.t[code]=m; var t=tourOf(code); if(t)checkNew('t:'+code,ids,'la tournée « '+t.nom+' »',names,t.owner?{selfId:PID}:null);
     updateDots(); partRender();
   },function(){});
 }
@@ -1490,7 +1491,7 @@ function subscribeCasMem(cid){
   var cs=casOf(cid); if(!fs||!cs||PRES['u'+cid])return;
   PRES['u'+cid]=caseDoc(cid).collection('membres').onSnapshot(function(snap){
     var m={}, ids=[], names={}; snap.docs.forEach(function(d){var x=d.data()||{}; m[d.id]=x; ids.push(d.id); names[d.id]=x.prenom;});
-    PRES.c[cid]=m; var c=casOf(cid); if(!c)return;
+    noteGone(PRES.c[cid],m,'c'+cid); PRES.c[cid]=m; var c=casOf(cid); if(!c)return;
     checkNew('c:'+cid,ids,'la caserne « '+c.nom+' »',names,(!c.visitor&&isCasAdmin(cid))?{selfId:c.mid}:null);
     updateDots(); var pt=myPrincTid(); if(lastPt!==undefined&&pt!==lastPt)beat(); lastPt=pt;
     if(c.mid&&cid===T.ccur&&m[c.mid]){var me=m[c.mid], sig=(me.aff||'')+'|'+(me.affEnc?'1':'0'), prev=lsGet('lastaff:'+cid,null); ensureMemberKey(c);
@@ -1517,7 +1518,7 @@ function partPanel(){
 function partRender(){
   var box=$('#pp-list'); if(!box||!T.cur)return; var t0=tourOf(T.cur); var m=PRES.t[T.cur]||{};
   var ids=Object.keys(m).sort(function(a,b){return (isOn(m[b].seen)?1:0)-(isOn(m[a].seen)?1:0)||String(m[a].prenom).localeCompare(String(m[b].prenom),'fr');});
-  box.innerHTML=ids.length?ids.map(function(i){var x=m[i]; return '<div class="mc"><span class="rn">'+('<i class="dot'+(isOn(x.seen)?' on':'')+'"></i>')+esc(x.prenom||'?')+(x.pt&&t0&&x.pt===t0.tid?' <span class="note" style="margin:0">· principal</span>':'')+(i===PID?' · toi':'')+(lastCo(x.seen,i===PID,x.last)?'<small>'+lastCo(x.seen,i===PID,x.last)+'</small>':'')+'</span></div>';}).join(''):'<p class="empty">Personne pour l\'instant.</p>';
+  box.innerHTML=ids.length?ids.map(function(i){var x=m[i]; return '<div class="mc"><span class="rn">'+('<i class="dot'+(isOn(x.seen)?' on':'')+'"></i>')+esc(x.prenom||'?')+(x.pt&&t0&&x.pt===t0.tid?' <span class="note" style="margin:0">· principal</span>':'')+(i===PID?' · toi':'')+(lastCo(x,i===PID,'t'+T.cur+i)?'<small>'+lastCo(x,i===PID,'t'+T.cur+i)+'</small>':'')+'</span></div>';}).join(''):'<p class="empty">Personne pour l\'instant.</p>';
 }
 
 var banTimer=null, banQ=[];
