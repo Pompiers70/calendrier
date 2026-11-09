@@ -243,15 +243,19 @@ input[type=text]{width:100%}
 .cl.ok{border-color:#1a7f37} .cl.ok small{color:#1a7f37}
 .cl.bad{border-color:var(--accent)} .cl.bad small{color:var(--accent)}
 .cl.warn{border-color:#b26a00} .cl.warn small{color:#b26a00}
+.dlg{position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.6); display:grid; place-items:center; padding:20px}
+.dlgbox{background:var(--surface); border-radius:16px; padding:22px 20px 18px; max-width:420px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.dlgbox h3{font:700 26px/1.1 var(--font-display); text-transform:uppercase; margin:0 0 10px; color:var(--accent)}
+.dlgbox p{font-size:17px; margin:0 0 6px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.9</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v3.11</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v3.9</p>
+  <p class="sub">Calendriers des pompiers · v3.11</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -515,6 +519,12 @@ function leaveTour(code,msg,forget){
   if(T.cur===code){var n=T.list[0]; if(n)setCur(n.code); else{T.cur=null; lsSet('cur',null); state.ventes={}; state.config=defCfg(); applyGeo(null); render();}} else render();
   toast(msg||'Tournée quittée');
 }
+function confirmDelete(code){
+  var t=tourOf(code); if(!t)return; var old=$('#dlg'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.dataset.code=code;
+  d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">Supprimer la tournée ?</h3><p>« <b>'+esc(t.nom)+'</b> » sera supprimée <b>pour tout le monde</b>, avec toutes ses ventes.</p><p>Cette action est définitive.</p><button type="button" class="primary" data-a="dlgyes">Oui, supprimer</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Annuler</button></div>';
+  document.body.appendChild(d);
+}
 function deleteTour(code){
   var t=tourOf(code); if(!t||!(t.owner||T.admin))return;
   if(!fs){leaveTour(code,'Tournée supprimée',true); return;}
@@ -571,13 +581,13 @@ function ruesPanel(){
    +allStreets().map(function(s){var on=!r||r.indexOf(s.id)>-1; return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="rue" data-id="'+s.id+'"'+(on?' checked':'')+'><span class="box">✕</span><span>'+esc(s.nom)+'</span></label>';}).join(''));
 }
 function renamePanel(){var t=tourOf(T.cur); openPanel(panelHead('Renommer la tournée','')+'<form data-f="rename"><label class="fld" for="rn-nom">Nom</label><input type="text" id="rn-nom" autocomplete="off" value="'+esc(t?t.nom:'')+'"><button type="submit" class="primary">Enregistrer</button></form>');}
-var ADMIN_HASH='fecf04a0b485b9f3031cb6b7ec0b3fc648bff2927d9d998f23c2106b48b7e2d7';
+var ADMIN_HASH='50b42393a019f612e9dd8f5d83b1fd135fbef4ec87ce860f022d2132d44e0dbf';
 function adminTry(code){
-  var v=String(code).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  var v=String(code).trim();
   if(!(window.crypto&&crypto.subtle)){toast('Code administrateur indisponible ici'); return;}
   crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)).then(function(b){var hx=Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2);}).join(''); if(hx===ADMIN_HASH){T.admin=true; lsSet('admin',true); toast('Mode administrateur activé');} else toast('Code administrateur incorrect');});
 }
-function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
+function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
 function welcomeHTML(){return '<h2 style="margin-top:20px">Bienvenue</h2><p class="hint" style="font-size:17px">Une tournée, c\'est une liste de rues et des ventes partagées entre ceux qui ont son code.</p><button type="button" class="primary" data-a="newt">Créer ma tournée</button><button type="button" class="btn" data-a="join" style="width:100%;margin-top:12px;min-height:58px">J\'ai un code ou un QR code</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
@@ -652,7 +662,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='3.9';
+var DBG=[], VERSION='3.11';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null;
 function loadDB(){
@@ -952,8 +962,8 @@ function saveSheet(){
   }
   putVente(rec); closeSheet(); toast('Enregistré');
 }
-function armed(btn){if(btn.dataset.armed)return true; btn.dataset.armed='1'; btn.dataset.old=btn.textContent; btn.textContent='Touche encore pour confirmer';
-  setTimeout(function(){if(btn.isConnected){delete btn.dataset.armed; btn.textContent=btn.dataset.old;}},3500); return false;}
+function armed(btn,ms){if(btn.dataset.armed)return true; btn.dataset.armed='1'; btn.dataset.old=btn.textContent; btn.textContent='Touche encore pour confirmer';
+  setTimeout(function(){if(btn.isConnected){delete btn.dataset.armed; btn.textContent=btn.dataset.old;}},ms||3500); return false;}
 var tt=null;
 function toast(t){var e=$('#toast'); e.textContent=t; e.hidden=false; clearTimeout(tt); tt=setTimeout(function(){e.hidden=true;},2200);}
 
@@ -1029,7 +1039,9 @@ document.addEventListener('click',function(e){
   else if(a==='norues'){state.config.rues=[]; putCfg(); ruesPanel();}
   else if(a==='leave'){if(armed(t))leaveTour(T.cur);}
   else if(a==='comeback'){joinCode(t.dataset.code).then(function(){toast('Tournée retrouvée');},function(m){toast(m); menuPanel();});}
-  else if(a==='delete'){if(armed(t))deleteTour(T.cur);}
+  else if(a==='delete'){if(armed(t,1500))confirmDelete(T.cur);}
+  else if(a==='dlgno'){var dg=$('#dlg'); if(dg)dg.remove();}
+  else if(a==='dlgyes'){var dg2=$('#dlg'); if(dg2){var dcode=dg2.dataset.code; dg2.remove(); deleteTour(dcode);}}
   else if(a==='copycode'){var ct=tourOf(T.cur); if(ct){var txt=fmtCode(ct.code); (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Code copié');},function(){toast('Code : '+txt);});}}
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
   else if(a==='save')saveSheet();
@@ -1065,7 +1077,7 @@ document.addEventListener('change',function(e){
     if(!T.cur)throw 0; Object.keys(j.ventes).forEach(function(k){var r=fixRec(j.ventes[k]); if(r&&r.id&&(!state.ventes[k]||(state.ventes[k].ts||0)<=(r.ts||0)))putVente(r);}); toast('Sauvegarde restaurée');}catch(x){toast('Fichier de sauvegarde non reconnu');}};
   fr.readAsText(e.target.files[0]); e.target.value='';
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var dg3=$('#dlg'); if(dg3)dg3.remove(); else if(!$('#sheet').hidden)closeSheet();}});
 
 init();
 setTimeout(function(){var sp=document.getElementById('splash'); if(sp){sp.classList.add('out'); setTimeout(function(){sp.remove();},600);}},1800);
