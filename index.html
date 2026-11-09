@@ -263,15 +263,17 @@ input[type=text]{width:100%}
 .nots{text-align:center; margin:18px 4px 22px}
 .nt1{font:600 19px/1.3 var(--font-body,inherit); margin:0 0 6px}
 .nt2{color:var(--muted); font-size:16px; line-height:1.4; margin:0}
+.lk.dots{font-size:22px; font-weight:700; min-width:44px; padding:0 10px; letter-spacing:0}
+.cpill{display:inline-block; margin-left:8px; padding:1px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; font-weight:600; color:var(--fg); background:var(--surface); vertical-align:1px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.11</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.13</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.11</p>
+  <p class="sub">Calendriers des pompiers · v4.13</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -509,7 +511,7 @@ function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var
 function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.config); cloudDo(function(){return docRef(code).set({cfg:s},{merge:true});});}
 
 /* gestion des tournées */
-function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Aucune tournée affectée'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge();}
+function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Aucune tournée affectée'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge(); var cs=casOf(T.ccur), sp=$('#casname'); if(!sp){var sb=document.querySelector('header .sub'); if(sb){sp=document.createElement('span'); sp.id='casname'; sp.className='cpill'; sb.appendChild(sp);}} if(sp){sp.hidden=!cs; sp.textContent=cs?cs.nom:'';}}
 function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render(); setTimeout(function(){if(typeof beat==='function')beat();},50);}
 function createTour(nom,geo){
   var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
@@ -720,7 +722,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.11';
+var DBG=[], VERSION='4.13';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -994,12 +996,13 @@ function casMenu(){
   return h+'<button type="button" class="mi sm" data-a="addcas">'+(T.cas.length?'+ Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
 }
 function principalOf(m,tours){
+  if(m.aff==='-')return null;
   if(m.aff){var e=tours.filter(function(x){return x.id===m.aff;})[0]; if(e)return e;}
   return tours.filter(function(x){return x.par===m.id&&!x.adm;}).sort(function(a,b){return (a.ts||0)-(b.ts||0);})[0]||null;
 }
 function casPanel(cid){
   cid=cid||T.ccur; var cs=casOf(cid); if(!cs){onbShow(); return;}
-  T.ccur=cid; saveCas();
+  T.ccur=cid; saveCas(); drawHeader();
   var adm=isCasAdmin(cid);
   openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+(adm?' <span class="redadm">(administrateur)</span>':'')+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
    +(!adm?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
@@ -1015,9 +1018,9 @@ function casLoad(cid){
     var mem=r[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
     mem.sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});
     var adm=isCasAdmin(cid), h='<h2 style="margin-top:6px">Tournées</h2>';
-    h+=tours.length?tours.map(function(e){var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
+    h+=tours.length?tours.map(function(e){var assg=mem.filter(function(m){var p=principalOf(m,tours); return p&&p.id===e.id;}); var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
       var act=mine?'<button type="button" class="lk go" data-a="casopen" data-code="'+mine.code+'">Ouvrir</button>':(adm?'<button type="button" class="lk go" data-a="casjoin" data-cid="'+cid+'" data-tid="'+e.id+'">Rejoindre</button>':'<span class="note" style="margin:0">Code ou QR code nécessaire</span>');
-      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(e.parNom?'créée par '+esc(e.parNom):'')+'</small></span><div class="lks" style="margin:0">'+act+'</div></div>';}).join(''):'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>';
+      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(assg.length?assg.map(function(m){return esc(m.prenom||'?');}).join(', '):'Aucun personnel affecté')+'</small></span><div class="lks" style="margin:0">'+act+(adm&&assg.length?'<button type="button" class="lk dots" data-a="tourmenu" data-cid="'+cid+'" data-tid="'+e.id+'" aria-label="Options de la tournée">⋮</button>':'')+'</div></div>';}).join(''):'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>';
     if(adm&&!cs.visitor)h+='<button type="button" class="mi" data-a="newt" style="margin-top:6px">+ Créer une tournée pour la caserne</button><p class="note" style="margin:0 0 8px">Elle ne sera affectée à personne, toi compris : utilise « Affecter » ensuite.</p>';
     h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
     if(adm&&tours.length&&mem.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
@@ -1061,7 +1064,7 @@ function confirmCasDelete(cid,nom){
   d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">Supprimer la caserne ?</h3><p>« <b>'+esc(nom)+'</b> » sera supprimée <b>pour tout le monde</b> : membres et liste des tournées.</p><p>Les tournées et leurs ventes ne sont pas supprimées. Cette action est définitive.</p><button type="button" class="primary" data-a="dlgyes">Oui, supprimer</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Annuler</button></div>';
   document.body.appendChild(d);
 }
-function dropCas(cid){unsubCasMem(cid); T.cas=T.cas.filter(function(c){return c.cid!==cid;}); if(T.ccur===cid)T.ccur=T.cas[0]?T.cas[0].cid:null; saveCas(); try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){}}
+function dropCas(cid){unsubCasMem(cid); T.cas=T.cas.filter(function(c){return c.cid!==cid;}); if(T.ccur===cid)T.ccur=T.cas[0]?T.cas[0].cid:null; saveCas(); try{localStorage.removeItem(LS+'ak:'+cid);}catch(e){} drawHeader();}
 function deleteCaserne(cid){
   if(!fs||!isCasAdmin(cid)){toast('Réservé à l\'administrateur'); return;}
   var ref=caseDoc(cid);
@@ -1108,6 +1111,17 @@ function casMultiDo(cid){
   Promise.all(ms.map(function(x){return caseDoc(cid).collection('membres').doc(x.value).set({aff:t.value},{merge:true});})).then(function(){toast(pl(ms.length,'personne affectée','personnes affectées')); casPanel(cid);}).catch(function(){if(er)er.textContent='Échec (réseau ?).';});
 }
 
+function tourMenuPanel(cid,tid){
+  if(!casCache||!isCasAdmin(cid))return;
+  var e=casCache.tours.filter(function(x){return x.id===tid;})[0]; if(!e)return;
+  var as=casCache.mem.filter(function(m){var p=principalOf(m,casCache.tours); return p&&p.id===tid;});
+  openPanel(panelHead('Retirer de la tournée','« '+e.nom+' »')+(as.length?as.map(function(m){return '<button type="button" class="row" data-a="casunaff" data-cid="'+cid+'" data-mid="'+m.id+'"><span class="rn">'+esc(m.prenom||'?')+'<small>Retirer de cette tournée</small></span></button>';}).join(''):'<p class="empty">Personne n\'est affecté.</p>')+'<p class="note">Ensuite, tu peux l\'affecter à une autre tournée avec « Affecter ».</p>');
+}
+function casUnaff(cid,mid){
+  if(!isCasAdmin(cid))return;
+  caseDoc(cid).collection('membres').doc(mid).set({aff:'-'},{merge:true}).then(function(){toast('Retiré de la tournée'); casPanel(cid);}).catch(function(){toast('Échec (réseau ?)');});
+}
+
 
 /* ---------- présence (en ligne / hors ligne) et notifications ---------- */
 var PID=lsGet('pid',null); if(!PID){PID=genCode(); lsSet('pid',PID);}
@@ -1116,7 +1130,7 @@ function isOn(seen){return !!seen&&Date.now()-seen<ONL;}
 function presDoc(code){return docRef(code).collection('pres').doc(PID);}
 function myPrincTid(){
   var cs=casOf(T.ccur); if(!cs||cs.visitor)return null;
-  var m=(PRES.c[cs.cid]||{})[cs.mid]; if(m&&m.aff)return m.aff;
+  var m=(PRES.c[cs.cid]||{})[cs.mid]; if(m&&m.aff==='-')return null; if(m&&m.aff)return m.aff;
   if(isCasAdmin(cs.cid))return null;
   var f=T.list.filter(function(t){return t.owner&&t.tid&&t.cid===cs.cid;})[0]; return f?f.tid:null;
 }
@@ -1398,6 +1412,8 @@ document.addEventListener('click',function(e){
   else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; caseDoc(cid9).collection('membres').doc(t.dataset.mid).set({aff:tid9},{merge:true}).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
+  else if(a==='tourmenu'){tourMenuPanel(t.dataset.cid,t.dataset.tid);}
+  else if(a==='casunaff'){casUnaff(t.dataset.cid,t.dataset.mid);}
   else if(a==='casmulti'){casMultiPanel(t.dataset.cid);}
   else if(a==='part'){partPanel();}
   else if(a==='notifs'){notifPanel();}
