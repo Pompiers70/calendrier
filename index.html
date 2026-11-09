@@ -254,12 +254,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.1</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.2</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.1</p>
+  <p class="sub">Calendriers des pompiers · v4.2</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -685,7 +685,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.1';
+var DBG=[], VERSION='4.2';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -933,7 +933,7 @@ function onbStep1(){
       $('#onb').querySelector('.onbbox').innerHTML='<h2>Nouvelle caserne</h2><p class="hint" style="font-size:17px">« <b>'+esc(nom)+'</b> » n\'existe pas encore. Tu vas la créer et tu en seras <b>l\'administrateur</b>.</p><p class="hint">Choisis ton code administrateur : il te permettra de rejoindre n\'importe quelle tournée de ta caserne. Garde-le bien, personne ne pourra le retrouver.</p>'
        +'<form data-f="onb2" data-nom="'+esc(nom)+'"><label class="fld" for="ob-pw">Code administrateur (8 caractères minimum)</label><input type="text" id="ob-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><label class="fld" for="ob-pw2">Retape-le</label><input type="text" id="ob-pw2" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Créer la caserne</button></form><button type="button" class="mi" data-a="onbback" style="margin-top:12px">Retour</button>';
     }
-  }).catch(function(){$('#ob-go').disabled=false; onbErr('Connexion impossible. Vérifie ton réseau.');});
+  }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées (voir regles-firestore.txt).':'Connexion impossible. Vérifie ton réseau.'+(e&&e.code?' ('+e.code+')':''));});
 }
 function onbStep2(nom){
   var pw=$('#ob-pw').value, pw2=$('#ob-pw2').value, cid=cidOf(nom);
@@ -944,7 +944,7 @@ function onbStep2(nom){
     return caseDoc(cid).set({nom:nom,pub:k.pub,wrap:k.wrap,creeLe:Date.now()}).then(function(){
       return caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:true});
     }).then(function(){lsSet('ak:'+cid,b64(k.pk8)); T.cas.push({cid:cid,nom:nom,mid:mid,admin:true}); T.ccur=cid; saveCas(); var o=$('#onb'); if(o)o.remove(); toast('Caserne créée : tu en es l\'administrateur'); render();});
-  }).catch(function(){$('#ob-go').disabled=false; onbErr('Création impossible (réseau ou règles Firebase).');});
+  }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées.':'Création impossible (réseau ?)'+(e&&e.code?' ('+e.code+')':''));;});
 }
 function joinCaserne(cid,nom){
   var mid=genCode();
