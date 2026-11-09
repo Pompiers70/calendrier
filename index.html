@@ -268,12 +268,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.17</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.18</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.17</p>
+  <p class="sub">Calendriers des pompiers · v4.18</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -722,7 +722,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.17';
+var DBG=[], VERSION='4.18';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -992,7 +992,7 @@ function joinCaserne(cid,nom){
 
 /* ---------- casernes : écran de la caserne ---------- */
 function casMenu(){
-  var h=mh('Ma caserne')+T.cas.map(function(c){return '<button type="button" class="mi sm" data-a="cas" data-cid="'+c.cid+'">'+esc(c.nom)+(c.cid===T.ccur?' · active':'')+(isCasAdmin(c.cid)?' <span class="redadm">(administrateur)</span>':'')+'</button>';}).join('');
+  var h=mh('Ma caserne')+T.cas.map(function(c){return '<button type="button" class="mi sm" data-a="cas" data-cid="'+c.cid+'">'+(c.cid===T.ccur?'<i class="dot on"></i>':'')+esc(c.nom)+'</button>';}).join('');
   return h+'<button type="button" class="mi sm" data-a="addcas">'+(T.cas.length?'+ Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
 }
 function principalOf(m,tours){
@@ -1004,8 +1004,8 @@ function casPanel(cid){
   cid=cid||T.ccur; var cs=casOf(cid); if(!cs){onbShow(); return;}
   T.ccur=cid; saveCas(); drawHeader();
   var adm=isCasAdmin(cid);
-  openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+(adm?' <span class="redadm">(administrateur)</span>':'')+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
-   +(!adm?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
+  openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
+   +(true?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
    +(adm?'<button type="button" class="mi danger" data-a="casdel" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Supprimer cette caserne</button>':'')
    +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
   casLoad(cid);
@@ -1046,7 +1046,7 @@ function casUnlockPanel(cid){
   openPanel(panelHead('Administrateur de la caserne','Entre ton code administrateur.')+'<form data-f="casunlock" data-cid="'+cid+'"><label class="fld" for="cu-pw">Code administrateur</label><input type="text" id="cu-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="cu-err" role="alert"></p><button type="submit" class="primary">Valider</button></form>');
 }
 function casUnlock(cid,pw){
-  caseDoc(cid).get().then(function(s){var d=s.data(); if(!d||!d.wrap)throw 0; return unwrapPriv(d.wrap,pw);}).then(function(pk8){lsSet('ak:'+cid,b64(pk8)); var c=casOf(cid); if(c){c.admin=true; saveCas();} toast('Tu es administrateur de cette caserne'); casPanel(cid);}).catch(function(){var e=$('#cu-err'); if(e)e.textContent='Code incorrect.';});
+  caseDoc(cid).get().then(function(s){var d=s.data(); if(!d||!d.wrap)throw 0; return unwrapPriv(d.wrap,pw);}).then(function(pk8){lsSet('ak:'+cid,b64(pk8)); var c=casOf(cid); if(c){c.admin=true; saveCas(); if(c.mid)caseDoc(cid).collection('membres').doc(c.mid).set({admin:true},{merge:true}).catch(function(){});} toast('Tu es administrateur de cette caserne'); casPanel(cid);}).catch(function(){var e=$('#cu-err'); if(e)e.textContent='Code incorrect.';});
 }
 function allCasPanel(){
   openPanel(panelHead('Toutes les casernes','Mode administrateur')+'<p class="hint" id="ac-st">Chargement…</p><div id="ac-list"></div>');
@@ -1095,7 +1095,7 @@ function kickMember(cid,mid){
 function leaveCaserne(cid){
   var cs=casOf(cid); if(!cs)return;
   var done=function(){dropCas(cid); closeSheet(); toast('Tu as quitté la caserne'); render();};
-  if(fs&&cs.mid&&!isCasAdmin(cid))caseDoc(cid).collection('membres').doc(cs.mid).delete().then(done).catch(function(){toast('Échec (réseau ?)');}); else done();
+  if(fs&&cs.mid)caseDoc(cid).collection('membres').doc(cs.mid).delete().then(done).catch(function(){toast('Échec (réseau ?)');}); else done();
 }
 
 function casMultiPanel(cid){
@@ -1157,6 +1157,12 @@ function openPrincipal(exclude){
     if(!code||code===exclude||code===T.cur)return;
     if(tourOf(code))setCur(code); else joinCode(code).catch(function(){});
   }).catch(function(){});
+}
+
+function leaveWarn(cid){
+  if(!lsGet('ak:'+cid,null))return '';
+  var n=casCache&&casCache.mem?casCache.mem.filter(function(m){return m.admin;}).length:0;
+  return n<=1?'<p><b>Tu es le seul administrateur.</b> Une fois parti, plus personne ne pourra gérer cette caserne sans le code administrateur.</p>':'<p>Tu perds tes droits d\'administrateur sur cette caserne.</p>';
 }
 
 
@@ -1459,7 +1465,7 @@ document.addEventListener('click',function(e){
   else if(a==='notclear'){NOTIFS=[]; saveNotifs(); updateBadge(); notifPanel();}
   else if(a==='notperm'){try{Notification.requestPermission().then(function(){notifPanel();});}catch(e){}}
   else if(a==='caskick'){confirmCasAct('kick',t.dataset.cid+'|'+t.dataset.mid,'Retirer '+t.dataset.nom+' ?','« <b>'+t.dataset.nom+'</b> » sera retiré(e) de la caserne. Cette personne pourra la rejoindre de nouveau en tapant son nom.');}
-  else if(a==='casleave'){confirmCasAct('leave',t.dataset.cid,'Quitter la caserne ?','Tu ne verras plus les tournées ni les membres de « <b>'+t.dataset.nom+'</b> ». Tes tournées déjà rejointes restent dans ta liste.');}
+  else if(a==='casleave'){confirmCasAct('leave',t.dataset.cid,'Quitter la caserne ?','Tu ne verras plus les tournées ni les membres de « <b>'+t.dataset.nom+'</b> ». Tes tournées déjà rejointes restent dans ta liste.'+leaveWarn(t.dataset.cid).replace(/^/,'</p>').replace(/<\/p>$/,''));}
   else if(a==='casdel'){if(armed(t,1500))confirmCasDelete(t.dataset.cid,t.dataset.nom);}
   else if(a==='casvisit'){var cv=t.dataset.cid; if(!casOf(cv)){T.cas.push({cid:cv,nom:t.dataset.nom,mid:'',admin:false,visitor:true}); subscribeCasMem(cv);} T.ccur=cv; saveCas(); casPanel(cv);}
   else if(a==='adminlist')adminListPanel();
