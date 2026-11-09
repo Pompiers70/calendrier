@@ -275,12 +275,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.23</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v4.24</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v4.23</p>
+  <p class="sub">Calendriers des pompiers · v4.24</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -732,7 +732,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='4.23';
+var DBG=[], VERSION='4.24';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -878,13 +878,19 @@ function submitNew(){
 
 /* ---------- fin de tournée : comptage de la caisse ---------- */
 var BILLETS=[500,200,100,50,20,10,5], PIECES=[2,1,0.5,0.2,0.1,0.05,0.02,0.01], CT=0;
-function cai(){var c=state.config.caisse; if(!c)c=state.config.caisse={n:{},ch:{}}; c.n=c.n||{}; c.ch=c.ch||{}; return c;}
+var CP=null;
+function cai0(){var c=state.config.caisse; if(!c)c=state.config.caisse={n:{},ch:{}}; c.n=c.n||{}; c.ch=c.ch||{}; return c;}
+function parOf(r){return r.par||'(non précisé)';}
+function sellers(){var s={}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut==='vendu')s[parOf(r)]=1;}); return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'fr');});}
+function who(){var c=cai0(); if(c.mode!=='chacun')return null; var s=sellers(); if(s.length<2)return null; if(!CP||s.indexOf(CP)<0)CP=s.indexOf(T.me)>-1?T.me:s[0]; return CP;}
+function cai(){var c=cai0(), w=who(); if(!w)return c; c.per=c.per||{}; var p=c.per[w]; if(!p)p=c.per[w]={n:{},ch:{}}; p.n=p.n||{}; p.ch=p.ch||{}; return p;}
+function resetCaisse(){var w=who(), c=cai0(); if(w){if(c.per)delete c.per[w];} else {c.n={}; c.ch={};}}
 function cts(x){return Math.round(x*100);}
 function dkey(d){return String(d).replace('.','_');}
 function dlabel(d,b){return (b?(d>=5?'Billet de ':'Pièce de '):'')+(d>=1?String(d):String(Math.round(d*100))+' c')+(d>=1?' €':'');}
 function cashCts(){var c=cai(),t=0; BILLETS.concat(PIECES).forEach(function(d){t+=(c.n[d]||0)*cts(d);}); return t;}
-function chequesList(){return Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu'&&r.paiement==='cheque';}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});}
-function expectedC(){var e={cash:0,cheque:0,nd:0}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu')return; var m=cts(r.montant||0); if(r.paiement==='especes')e.cash+=m; else if(r.paiement==='cheque')e.cheque+=m; else e.nd+=m;}); return e;}
+function chequesList(){var w=who(); return Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu'&&r.paiement==='cheque'&&(!w||parOf(r)===w);}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});}
+function expectedC(){var w=who(), e={cash:0,cheque:0,nd:0}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu'||(w&&parOf(r)!==w))return; var m=cts(r.montant||0); if(r.paiement==='especes')e.cash+=m; else if(r.paiement==='cheque')e.cheque+=m; else e.nd+=m;}); return e;}
 function checkedCts(){var c=cai(),t=0,n=0; chequesList().forEach(function(r){if(c.ch[r.id]){t+=cts(r.montant||0); n++;}}); return {t:t,n:n};}
 function gap(d){return d===0?'Compte bon ✓':(d<0?'Il manque '+eur(-d/100):'Il y a '+eur(d/100)+' en trop');}
 function cline(label,got,exp,note){var d=got-exp, cls=d===0?'ok':(d<0?'bad':'warn'); return '<div class="cl '+cls+'"><span>'+label+'</span><b>'+eur(got/100)+' sur '+eur(exp/100)+'</b><small>'+gap(d)+(note?' · '+note:'')+'</small></div>';}
@@ -898,10 +904,28 @@ function caisseUpdate(){
 }
 function saveCaisse(){saveLocal(); clearTimeout(CT); var code=T.cur; CT=setTimeout(function(){if(code===T.cur)cloudDo(function(){return docRef(code).set({cfg:cfgJSON(state.config)},{merge:true});});},700);}
 function drow(d){var k=dkey(d); return '<div class="dn"><span class="dv">'+dlabel(d,true)+'</span><button type="button" data-a="cdec" data-d="'+d+'" aria-label="Retirer un">−</button><b id="cn-'+k+'">0</b><button type="button" data-a="cinc" data-d="'+d+'" aria-label="Ajouter un">+</button><span class="ds" id="cs-'+k+'"></span></div>';}
+function perOverview(){
+  var c0=cai0(), save=c0.mode, rows=''; 
+  sellers().forEach(function(n){
+    c0.mode='chacun'; CP=n; var ex=expectedC(), p=(c0.per||{})[n], got=0, has=false;
+    if(p){got=cashCts()+checkedCts().t; has=got>0;}
+    var tot=ex.cash+ex.cheque+ex.nd, d=got-tot;
+    rows+='<button type="button" class="row" data-a="cwho" data-n="'+esc(n)+'"><span class="rn">'+esc(n)+'<small>Espèces '+eur(ex.cash/100)+' · Chèques '+eur(ex.cheque/100)+'</small></span><span class="rm"><b>'+eur(tot/100)+'</b>'+(has?(d===0?'Compte bon ✓':gap(d)):'À compter')+'</span></button>';
+  });
+  c0.mode=save; return rows;
+}
+function modeBlock(){
+  var s=sellers(); if(s.length<2)return '';
+  var c0=cai0(), ch=c0.mode==='chacun';
+  var h='<p class="hint" style="margin:0 0 6px">Vous êtes '+s.length+' à avoir vendu. Comment faites-vous les comptes ?</p>'
+   +'<div class="seg filter" role="group" aria-label="Comptes"><button type="button" data-a="cmode" data-v="tous" aria-pressed="'+(!ch)+'">Un seul compte pour tous</button><button type="button" data-a="cmode" data-v="chacun" aria-pressed="'+ch+'">Chacun son compte</button></div>';
+  if(ch){var w=who(); h+='<h3 class="ch3">Qui a quoi</h3>'+perOverview()+'<p class="hint" style="margin:10px 0 0">Compte de <b>'+esc(w)+'</b> : compte ci-dessous ce que tu as en main.</p>';}
+  return h;
+}
 function caissePanel(){
   var L=chequesList(), c=cai();
   openPanel(panelHead('Fin de tournée','Touche chaque billet, chaque pièce et chaque chèque que tu as devant toi.')
-   +'<div class="csum" id="csum"></div>'
+   +modeBlock()+'<div class="csum" id="csum"></div>'
    +'<h3 class="ch3">Billets</h3>'+BILLETS.map(drow).join('')
    +'<h3 class="ch3">Pièces</h3>'+PIECES.map(drow).join('')
    +'<h3 class="ch3">Chèques</h3>'+(L.length?L.map(function(r){var s=streetById(r.rue); return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="chq" data-id="'+esc(r.id)+'"'+(c.ch[r.id]?' checked':'')+'><span class="box">✕</span><span>'+esc(r.nom||'Sans nom')+' · '+eur(r.montant)+'<small style="display:block;color:var(--muted)">'+esc(r.numero)+' '+esc(s?s.nom:r.rueNom||'')+'</small></span></label>';}).join(''):'<p class="empty">Aucun chèque enregistré.</p>')
@@ -909,6 +933,11 @@ function caissePanel(){
   caisseUpdate();
 }
 function recapRows(rows){
+  var c0=cai0(), s=sellers();
+  if(c0.mode==='chacun'&&s.length>1){var keep=CP; s.forEach(function(n){CP=n; rows.push([]); rows.push(['COMPTE DE '+n.toUpperCase()]); recapOne(rows);}); CP=keep; return;}
+  recapOne(rows);
+}
+function recapOne(rows){
   var c=cai(), ex=expectedC(), cash=cashCts(), L=chequesList(), ck=checkedCts();
   function f(x){return String(Math.round(x*100)/100).replace('.',',');}
   rows.push([]); rows.push(['RÉCAPITULATIF FIN DE TOURNÉE']); rows.push(['','Nombre','Montant (€)']);
@@ -1531,8 +1560,10 @@ document.addEventListener('click',function(e){
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
   else if(a==='caisse')caissePanel();
+  else if(a==='cmode'){cai0().mode=t.dataset.v; saveCaisse(); caissePanel();}
+  else if(a==='cwho'){CP=t.dataset.n; var c9=cai0(); c9.mode='chacun'; saveCaisse(); caissePanel();}
   else if(a==='cinc'||a==='cdec'){var cc3=cai(), dd=t.dataset.d, nn=(cc3.n[dd]||0)+(a==='cinc'?1:-1); cc3.n[dd]=Math.max(0,nn); caisseUpdate(); saveCaisse();}
-  else if(a==='creset'){if(armed(t)){state.config.caisse=null; saveCaisse(); caissePanel();}}
+  else if(a==='creset'){if(armed(t)){resetCaisse(); saveCaisse(); caissePanel();}}
   else if(a==='pickc'){var cc={nom:t.dataset.nom,code:t.dataset.code,lat:parseFloat(t.dataset.lat),lon:parseFloat(t.dataset.lon),cp:t.dataset.cp}; if(!NT.sel.some(function(x){return x.code===cc.code;}))NT.sel.push(cc); $('#nt-q').value=''; $('#nt-res').innerHTML=''; ntRefresh();}
   else if(a==='unpickc'){NT.sel=NT.sel.filter(function(x){return x.code!==t.dataset.code;}); ntRefresh();}
   else if(a==='newempty'){NT.sel=[]; $('#nt-q').value=''; submitNew();}
