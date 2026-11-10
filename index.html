@@ -285,6 +285,10 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.pk{display:flex;align-items:center;gap:14px;padding:14px 16px;margin:8px 0;border:1px solid var(--line,#333);border-radius:14px;cursor:pointer}
+.pk input{flex:0 0 22px;width:22px;height:22px;margin:0}
+.pk .rn{flex:1;min-width:0;font-size:20px;line-height:1.2}
+.pk small{display:block;font-size:14px;opacity:.7;margin-top:3px}
 .hero2{background:var(--fg); color:var(--bg); border-radius:16px; padding:16px}
 .hero2 b{display:block; font-size:20px; line-height:1.2}
 .hero2 small{display:block; opacity:.75; font-size:13px; margin-top:3px}
@@ -313,12 +317,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.14</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.15</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.14</p>
+  <p class="sub">Calendriers des pompiers · v5.15</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -638,7 +642,7 @@ function menuPanel(){
   var cur=tourOf(T.cur), h=panelHead('Menu','');
   if(cur){var tt=tourTotal(cur.code), role=T.admin?'Tu es administrateur de l\'app':(canArchive()?'Tu es administrateur':'');
     h+=mh('Ma tournée')+'<div class="hero2"><b>'+dot('tour:'+cur.code,dotState('tour:'+cur.code))+esc(cur.nom)+'</b><small>'+(role?esc(role)+' · ':'')+pl(tt.n,'vente','ventes')+' · '+eur(tt.s)+'</small>'
-     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="rues">Rues</button><button type="button" data-a="part">Participants</button></div>'
+     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="part">Participants</button></div>'
      +'<button type="button" class="lnk2" data-a="rename">Renommer</button></div>';}
   var rows=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
     return mrow('switch',dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom),(on?'Ouverte · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes'),'<span class="amt">'+eur(x.s)+'</span>',' data-code="'+t.code+'"'+(on?' aria-current="true"':''));}).join('');
@@ -757,6 +761,7 @@ function init(){
     if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid); checkClosed(x.cid);}); startVie();}
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
+    if(!T.cur&&!h){var ac=T.cas.filter(function(x){return isCasAdmin(x.cid);})[0]; if(ac)setTimeout(function(){if(!T.cur)casPanel(ac.cid);},400);}
   });
   window.addEventListener('offline',function(){if(fs)setSync('offline');});
   window.addEventListener('online',function(){if(fs)setSync('ok');});
@@ -798,7 +803,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.14';
+var DBG=[], VERSION='5.15';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1432,9 +1437,9 @@ function casMultiPanel(cid){
   if(!casCache)return;
   openPanel(panelHead('Affecter plusieurs personnes','Cette tournée deviendra la tournée principale de chaque personne cochée.')
    +'<form data-f="casmulti" data-cid="'+cid+'"><p class="mh">1. La tournée</p>'
-   +casCache.tours.map(function(e,i){return '<label class="mc" style="cursor:pointer"><input type="radio" name="mt" value="'+e.id+'"'+(i===0?' checked':'')+' style="width:22px;height:22px;margin-right:10px"><span class="rn">'+esc(e.nom)+'</span></label>';}).join('')
+   +casCache.tours.map(function(e,i){return '<label class="pk"><input type="radio" name="mt" value="'+e.id+'"'+(i===0?' checked':'')+'><span class="rn">'+esc(e.nom)+'</span></label>';}).join('')
    +'<p class="mh">2. Les personnes</p>'
-   +casCache.mem.map(function(m){var p=principalOf(m,casCache.tours); return '<label class="mc" style="cursor:pointer"><input type="checkbox" name="mm" value="'+m.id+'" style="width:22px;height:22px;margin-right:10px"><span class="rn">'+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+'<small>'+(p?'Actuellement : '+esc(p.nom):'Pas de tournée')+'</small></span></label>';}).join('')
+   +casCache.mem.map(function(m){var p=principalOf(m,casCache.tours); return '<label class="pk"><input type="checkbox" name="mm" value="'+m.id+'"><span class="rn">'+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+'<small>'+(p?'Actuellement : '+esc(p.nom):'Pas de tournée')+'</small></span></label>';}).join('')
    +'<p class="err" id="mm-err" role="alert"></p><button type="submit" class="primary">Affecter</button></form>');
 }
 function affectMember(cid,mid,tid){
@@ -1744,7 +1749,7 @@ function saveSheet(){
     var m=parseAmount($('#f-mont').value);
     if(m==null){$('#err').textContent='Indique le montant payé.'; $('#f-mont').focus(); return;}
     rec.nom=$('#f-nom').value.trim(); rec.montant=m;
-    var sl=document.getElementById('f-seller'); if(!T.me){var sv=sl?sl.value.trim():''; if(!sv){$('#err').textContent='Indique ton prénom pour pouvoir vendre.'; if(sl){sl.focus(); sl.scrollIntoView({block:'center'});} return;} T.me=sv.slice(0,30); lsSet('me',T.me);} var p=document.querySelector('#sheet input[name=pay]:checked'); if(!p){$('#err').textContent='Choisis le mode de paiement : espèces ou chèque.'; var pf=document.querySelector('#sheet fieldset'); if(pf)pf.scrollIntoView({block:'center'}); return;} rec.paiement=p.value; if(rec.nom)setNom(nomKey(S.rue,S.numero),rec.nom);
+    var sl=document.getElementById('f-seller'); if(!T.me){var sv=sl?sl.value.trim():''; if(!sv){$('#err').textContent='Indique ton prénom pour pouvoir vendre.'; if(sl){sl.focus(); sl.scrollIntoView({block:'center'});} return;} T.me=sv.slice(0,30); lsSet('me',T.me);} var p=document.querySelector('#sheet input[name=pay]:checked'); if(!p){$('#err').textContent='Choisis le mode de paiement : espèces ou chèque.'; var pf=document.querySelector('#sheet fieldset'); if(pf)pf.scrollIntoView({block:'center'}); return;} if(!rec.nom){$('#err').textContent='Indique le nom du client.'; var fn=document.getElementById('f-nom'); if(fn){fn.focus(); fn.scrollIntoView({block:'center'});} return;} rec.paiement=p.value; if(rec.nom)setNom(nomKey(S.rue,S.numero),rec.nom);
   }
   var r0=state.ventes[S.id]; if(r0&&r0.par)rec.par=r0.par;
   var rp=((r0&&r0.rep)||[]).slice(), msg='Enregistré', ms=2200, popBox=false;
