@@ -285,15 +285,40 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.hero2{background:var(--fg); color:var(--bg); border-radius:16px; padding:16px}
+.hero2 b{display:block; font-size:20px; line-height:1.2}
+.hero2 small{display:block; opacity:.75; font-size:13px; margin-top:3px}
+.acts2{display:flex; gap:8px; margin-top:14px}
+.acts2 button{flex:1; min-height:46px; border:0; border-radius:11px; background:var(--bg); color:var(--fg); font-weight:700; font-size:14px; padding:0 4px}
+.lnk2{display:block; margin:10px 0 0 auto; background:none; border:0; color:inherit; opacity:.7; text-decoration:underline; font-size:13px; min-height:0; padding:2px 0}
+.mcard{background:var(--surface); border:1.5px solid var(--line); border-radius:16px; overflow:hidden; margin-bottom:6px}
+.mr{display:flex; align-items:center; gap:12px; width:100%; min-height:58px; padding:12px 16px; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); border-radius:0; font-weight:600; font-size:17px; color:var(--fg)}
+.mcard > .mr:first-child{border-top:0}
+.mcard > .mr2:first-child{border-top:0}
+.mr2{display:flex; align-items:stretch; border-top:1px solid var(--line)}
+.mr2 .mr{border:0; flex:1; min-width:0}
+.mr .g{flex:1; min-width:0; overflow-wrap:anywhere}
+.mr small{display:block; font-weight:500; color:var(--muted); font-size:13px; margin-top:2px}
+.mr .chev{color:var(--muted); font-size:22px}
+.mr .rt{color:var(--accent); font-weight:700; font-size:14px}
+.mr .amt{font-weight:800}
+.mr.k{color:var(--accent)}
+.mr.r{color:var(--accent)}
+.dots2{width:54px; border:0; background:transparent; font-size:24px; font-weight:800; color:var(--muted); min-height:0}
+.dng2{margin-top:22px; border-top:1px solid var(--line); padding-top:4px}
+.dng2 .mr{border:0; color:var(--muted); min-height:50px; font-size:15px}
+.dng2 .mr.r{color:var(--accent)}
+.dng2 .mr small{font-size:12px}
+.pill2{display:inline-block; font-size:11px; font-weight:800; color:var(--accent); border:1.5px solid var(--accent); border-radius:20px; padding:0 8px; margin-left:8px; vertical-align:1px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.13</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.14</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.13</p>
+  <p class="sub">Calendriers des pompiers · v5.14</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -603,20 +628,33 @@ function takeMe(){var e=$('#f-me'); if(e&&e.value.trim()){T.me=e.value.trim().sl
 function mi(a,label,extra){return '<button type="button" class="mi" data-a="'+a+'"'+(extra||'')+'>'+label+'</button>';}
 function ms(a,label){return '<button type="button" class="mi sm" data-a="'+a+'">'+label+'</button>';}
 function mh(t){return '<p class="mh">'+t+'</p>';}
+function canCreate(){
+  if(T.admin)return true;
+  var cs=T.cas.filter(function(x){return !x.visitor;}); if(!cs.length)return true;
+  return cs.some(function(x){return isCasAdmin(x.cid);});
+}
+function mrow(a,title,sub,right,extra,cls){return '<button type="button" class="mr'+(cls?' '+cls:'')+'" data-a="'+a+'"'+(extra||'')+'><span class="g">'+title+(sub?'<small>'+sub+'</small>':'')+'</span>'+(right!==undefined&&right!==null?right:'<span class="chev">›</span>')+'</button>';}
 function menuPanel(){
-  var cur=tourOf(T.cur);
-  var list=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
-    return '<button type="button" class="row" data-a="switch" data-code="'+t.code+'"'+(on?' aria-current="true"':'')+'><span class="rn">'+dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom)+'<small>'+(on?'Tournée actuelle · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes')+'</small></span><span class="rm"><b>'+eur(x.s)+'</b></span></button>';}).join('');
-  var h=panelHead('Menu','')+mh('Mes tournées')+(list||'<p class="empty">Aucune tournée pour l\'instant.</p>')
-   +'<div class="mg">'+ms('newt','+ Nouvelle')+ms('join','Rejoindre (code)')+'</div>'
-   +(T.left.length?mh('Tournées quittées')+T.left.map(function(l){return '<button type="button" class="mi sm" data-a="comeback" data-code="'+l.code+'">Revenir : '+esc(l.nom)+'</button>';}).join(''):'');
-  if(cur)h+=mh('Cette tournée : '+esc(cur.nom))+'<div class="mg">'+ms('share','Partager (QR)')+ms('rues','Rues')+ms('rename','Renommer')+ms('part','Participants')+ms('leave','Quitter')+'</div>'
-   +(canArchive()?'<div class="mg">'+ms('histo','Historique')+'</div>':'')
-   +(canDelete(cur)?'<button type="button" class="mi sm danger" data-a="delete">Supprimer pour tout le monde</button>':'');
-  h+=casMenu();
+  var cur=tourOf(T.cur), h=panelHead('Menu','');
+  if(cur){var tt=tourTotal(cur.code), role=T.admin?'Tu es administrateur de l\'app':(canArchive()?'Tu es administrateur':'');
+    h+=mh('Ma tournée')+'<div class="hero2"><b>'+dot('tour:'+cur.code,dotState('tour:'+cur.code))+esc(cur.nom)+'</b><small>'+(role?esc(role)+' · ':'')+pl(tt.n,'vente','ventes')+' · '+eur(tt.s)+'</small>'
+     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="rues">Rues</button><button type="button" data-a="part">Participants</button></div>'
+     +'<button type="button" class="lnk2" data-a="rename">Renommer</button></div>';}
+  var rows=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
+    return mrow('switch',dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom),(on?'Ouverte · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes'),'<span class="amt">'+eur(x.s)+'</span>',' data-code="'+t.code+'"'+(on?' aria-current="true"':''));}).join('');
+  rows+=T.left.map(function(l){return mrow('comeback',esc(l.nom),'Quittée · toucher pour revenir',null,' data-code="'+l.code+'"');}).join('');
+  if(canCreate())rows+=mrow('newt','+ Nouvelle tournée','',null,'','k');
+  rows+=mrow('join','Rejoindre avec un code','',null,'','k');
+  h+=mh('Mes tournées')+'<div class="mcard">'+rows+'</div>';
+  h+=mh('Ma caserne')+'<div class="mcard">'+casMenuRows()+'</div>';
   var nb=unread();
-  h+=mh('Moi')+'<div class="mg">'+ms('me','Prénom : '+esc(T.me||'à choisir')+(T.admin?' (admin)':''))+ms('notifs','Notifications'+(nb?' <span class="bdg in">'+nb+'</span>':''))+'</div>';
-  if(T.admin)h+=mh('Administrateur')+'<div class="mg">'+ms('adminlist','Toutes les tournées')+ms('allcas','Toutes les casernes')+'</div>';
+  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
+  if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+'</div>';
+  var dg='';
+  if(cur&&canArchive()&&!(tourOf(T.cur)&&T.list.filter(function(x){return x.code===T.cur&&x.cid;})[0]))dg+=mrow('histo','Historique de la tournée');
+  if(cur)dg+=mrow('leave','Quitter cette tournée','',null);
+  if(cur&&canDelete(cur))dg+=mrow('delete','Supprimer pour tout le monde','',null,'','r');
+  if(dg)h+='<div class="dng2">'+dg+'</div>';
   openPanel(h);
 }
 function joinPanel(){
@@ -684,7 +722,7 @@ function adminTry(code){
   unwrapPriv(GLOBAL_WRAP,v).then(function(pk8){lsSet('gk',b64(pk8)); T.admin=true; lsSet('admin',true); adminLogin(v);}).catch(function(){toast('Code administrateur incorrect');});
 }
 function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
-function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button><button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>'+(T.cas.length?'<p class="mh">Mes casernes</p>'+T.cas.map(function(x){return '<button type="button" class="btn" data-a="cas" data-cid="'+x.cid+'" style="width:100%;margin-top:8px;min-height:58px">'+(x.cid===T.ccur?'<i class="dot on"></i>':'')+esc(x.nom)+'</button>';}).join(''):'')+'<button type="button" class="btn" data-a="addcas" style="width:100%;margin-top:12px;min-height:58px">Créer ou rejoindre une caserne</button>';}
+function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button>'+(canCreate()?'<button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>':'')+(T.cas.length?'<p class="mh">Mes casernes</p>'+T.cas.map(function(x){return '<button type="button" class="btn" data-a="cas" data-cid="'+x.cid+'" style="width:100%;margin-top:8px;min-height:58px">'+(x.cid===T.ccur?'<i class="dot on"></i>':'')+esc(x.nom)+'</button>';}).join(''):'')+'<button type="button" class="btn" data-a="addcas" style="width:100%;margin-top:12px;min-height:58px">Créer ou rejoindre une caserne</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
 
@@ -760,7 +798,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.13';
+var DBG=[], VERSION='5.14';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1245,9 +1283,11 @@ function joinCaserne(cid,nom){
 }
 
 /* ---------- casernes : écran de la caserne ---------- */
-function casMenu(){
-  var h=mh('Ma caserne')+T.cas.map(function(c){return '<button type="button" class="mi sm" data-a="cas" data-cid="'+c.cid+'">'+(c.cid===T.ccur?'<i class="dot on"></i>':'')+esc(c.nom)+'</button>';}).join('');
-  return h+'<button type="button" class="mi sm" data-a="addcas">'+(T.cas.length?'+ Ajouter une autre caserne':'Rejoindre ou créer ma caserne')+'</button>';
+function casMenuRows(){
+  var rows=T.cas.map(function(c){var cc=lsGet('cc:'+c.cid,null)||{}, sub=[];
+    if(cc.mem)sub.push(cc.mem.length+' membre'+(cc.mem.length>1?'s':'')); if(cc.tours)sub.push(cc.tours.length+' tournée'+(cc.tours.length>1?'s':''));
+    return mrow('cas',(c.cid===T.ccur?'<i class="dot on"></i>':'')+esc(c.nom)+(isCasAdmin(c.cid)&&!c.visitor?'<span class="pill2">admin</span>':''),sub.join(' · '),null,' data-cid="'+c.cid+'"');}).join('');
+  return rows+mrow('addcas',T.cas.length?'+ Ajouter une autre caserne':'Rejoindre ou créer ma caserne','',null,'','k');
 }
 function principalOf(m,tours){
   if(m.aff==='-')return null;
@@ -1257,29 +1297,51 @@ function principalOf(m,tours){
 function casPanel(cid){
   cid=cid||T.ccur; var cs=casOf(cid); if(!cs){onbShow(); return;}
   T.ccur=cid; saveCas(); drawHeader();
-  var adm=isCasAdmin(cid);
-  openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+'<small>Tournées et membres de ta caserne</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
-   +(true?'<button type="button" class="mi danger" data-a="casleave" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Quitter cette caserne</button>':'')
-   +(lsGet('ak:'+cid,null)&&!cs.visitor?'<button type="button" class="mi" data-a="casstopadm" data-cid="'+cid+'" style="margin-top:18px">Arrêter d\'être administrateur</button><p class="note" style="margin:4px 0 0">Tu pourras le redevenir avec le code administrateur de la caserne.</p>':'')
-   +(adm?'<button type="button" class="mi danger" data-a="casdel" data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'" style="margin-top:18px">Supprimer cette caserne</button>':'')
-   +(adm||cs.visitor?'':'<button type="button" class="mi" data-a="casunlock" data-cid="'+cid+'" style="margin-top:14px">Je suis l\'administrateur de cette caserne</button>'));
+  var adm=isCasAdmin(cid), dg='';
+  dg+=mrow('casleave','Quitter la caserne','',null,' data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'"');
+  if(lsGet('ak:'+cid,null)&&!cs.visitor)dg+=mrow('casstopadm','Arrêter d\'être administrateur','Tu pourras le redevenir avec le code administrateur',null,' data-cid="'+cid+'"');
+  if(adm)dg+=mrow('casdel','Supprimer la caserne','',null,' data-cid="'+cid+'" data-nom="'+esc(cs.nom)+'"','r');
+  openPanel('<div class="ph"><div class="tt">'+esc(cs.nom)+'<small id="cas-sub">Chargement…</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div><div id="cas-body"><p class="hint">Chargement…</p></div>'
+   +(adm||cs.visitor?'':'<div class="mcard" style="margin-top:14px">'+mrow('casunlock','Je suis l\'administrateur de cette caserne','Avec le code administrateur',null,' data-cid="'+cid+'"')+'</div>')
+   +'<div class="dng2">'+dg+'</div>');
   casLoad(cid);
 }
+var MEMALL={};
 function casRender(cid,tours,mem){
-    var cs=casOf(cid), adm=isCasAdmin(cid), h='<h2 style="margin-top:6px">Tournées</h2>';
-    if(tours===null)h+='<p class="hint">Chargement des tournées…</p>'; var tl=tours||[], ml=mem||[];
-    h+=tl.length?tl.map(function(e){var assg=ml.filter(function(m){var p=principalOf(m,tl); return p&&p.id===e.id;}); var mine=T.list.filter(function(t){return t.tid===e.id;})[0];
-      var act=mine?'<button type="button" class="lk go" data-a="casopen" data-code="'+mine.code+'">Ouvrir</button>':(adm?'<button type="button" class="lk go" data-a="casjoin" data-cid="'+cid+'" data-tid="'+e.id+'">Rejoindre</button>':'<span class="note" style="margin:0">Code ou QR code nécessaire</span>');
-      return '<div class="mc"><span class="rn">'+esc(e.nom)+'<small>'+(assg.length?assg.map(function(m){return esc(m.prenom||'?');}).join(', '):'Aucun personnel affecté')+'</small></span><div class="lks" style="margin:0">'+act+(adm&&assg.length?'<button type="button" class="lk dots" data-a="tourmenu" data-cid="'+cid+'" data-tid="'+e.id+'" aria-label="Options de la tournée">⋮</button>':'')+'</div></div>';}).join(''):(tours===null?'':'<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>');
-    if(adm&&!cs.visitor)h+='<button type="button" class="mi" data-a="newt" style="margin-top:6px">+ Créer une tournée pour la caserne</button><p class="note" style="margin:0 0 8px">Elle ne sera affectée à personne, toi compris : utilise « Affecter » ensuite.</p>';
-    h+='<button type="button" class="mi" data-a="join" style="margin-top:6px">Rejoindre avec un code ou un QR code</button>';
-    if(adm&&tl.length&&ml.length)h+='<button type="button" class="mi" data-a="casmulti" data-cid="'+cid+'" style="margin-top:6px">Affecter plusieurs personnes à une tournée</button>';
-    if(adm&&!cs.visitor)h+='<div class="mg" style="margin-top:6px"><button type="button" class="mi" data-a="cashisto" data-cid="'+cid+'">Historique</button>'+(tl.length?'<button type="button" class="mi" data-a="casclot" data-cid="'+cid+'">Clôturer l\'année (toutes)</button>':'')+'<button type="button" class="mi" data-a="casrefaire" data-cid="'+cid+'">Refaire les tournées</button>'+'</div>';
-    h+='<h2>Les membres</h2>';
-    h+=ml.length?ml.map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id;
-      return '<div class="mc"><span class="rn">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?' <span class="redadm">(administrateur)</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+(lastCo(m,me,'c'+cid+m.id)?'<br>'+lastCo(m,me,'c'+cid+m.id):'')+'</small></span>'+(adm&&(!m.admin||!me)?'<div class="lks" style="margin:0">'+(tl.length?'<button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button>':'')+'<button type="button" class="lk" data-a="caskick" data-cid="'+cid+'" data-mid="'+m.id+'" data-nom="'+esc(m.prenom||'')+'"'+(m.admin?' data-adm="1"':'')+' style="color:var(--accent)">Retirer</button></div>':(adm&&tl.length?'<div class="lks" style="margin:0"><button type="button" class="lk" data-a="casaff" data-cid="'+cid+'" data-mid="'+m.id+'">Affecter</button></div>':''))+'</div>';}).join(''):(mem===null?'<p class="hint">Chargement des membres…</p>':'<p class="empty">Aucun membre.</p>');
-    var b=$('#cas-body'); if(b)b.innerHTML=h;
-    if(tours&&mem){casCache={tours:tours,mem:mem}; if(adm)casClean(cid,tours);}
+  var cs=casOf(cid); if(!cs)return; var adm=isCasAdmin(cid), admv=adm&&!cs.visitor, tl=tours||[], ml=mem||[];
+  var sb=$('#cas-sub'); if(sb)sb.textContent=(mem?ml.length+' membre'+(ml.length>1?'s':''):'')+(mem&&tours?' · ':'')+(tours?tl.length+' tournée'+(tl.length>1?'s':''):'');
+  var h=mh('Membres');
+  if(mem===null)h+='<p class="hint">Chargement des membres…</p>';
+  else if(!ml.length)h+='<p class="empty">Aucun membre.</p>';
+  else{var lim=MEMALL[cid]?ml.length:6;
+    h+='<div class="mcard">'+ml.slice(0,lim).map(function(m){var p=principalOf(m,tl), me=cs.mid===m.id, lc=lastCo(m,me,'c'+cid+m.id);
+      return '<div class="mr2"><div class="mr" style="cursor:default"><span class="g">'+dot('c:'+cid+':'+m.id,isOn(m.seen))+esc(m.prenom||'?')+(m.admin?'<span class="pill2">admin</span>':'')+(me?' · toi':'')+'<small>'+(p?'Tournée : '+esc(p.nom):'Pas de tournée')+(lc?'<br>'+lc:'')+'</small></span></div>'
+       +((adm&&(!m.admin||!me))?'<button type="button" class="dots2" data-a="memmenu" data-cid="'+cid+'" data-mid="'+m.id+'" aria-label="Options de '+esc(m.prenom||'')+'">⋮</button>':'')+'</div>';}).join('')
+     +(ml.length>lim?'<button type="button" class="mr" data-a="memall" data-cid="'+cid+'" style="justify-content:center;color:var(--muted);font-size:14px;min-height:48px">Voir les '+(ml.length-lim)+' autres</button>':'')+'</div>';}
+  h+=mh('Tournées');
+  if(tours===null)h+='<p class="hint">Chargement des tournées…</p>';
+  else if(!tl.length)h+='<p class="empty">Aucune tournée dans cette caserne pour l\'instant.</p>';
+  else h+='<div class="mcard">'+tl.map(function(e){var assg=ml.filter(function(m){var p=principalOf(m,tl); return p&&p.id===e.id;}), mine=T.list.filter(function(t){return t.tid===e.id;})[0];
+      var a=mine?'casopen':(admv?'casjoin':''), ex=mine?' data-code="'+mine.code+'"':' data-cid="'+cid+'" data-tid="'+e.id+'"';
+      var inner='<span class="g">'+esc(e.nom)+'<small>'+(assg.length?assg.map(function(m){return esc(m.prenom||'?');}).join(', '):'Aucun personnel affecté')+'</small></span>'+(a?'<span class="rt">'+(mine?'Ouvrir':'Rejoindre')+'</span>':'');
+      return '<div class="mr2">'+(a?'<button type="button" class="mr" data-a="'+a+'"'+ex+'>'+inner+'</button>':'<div class="mr" style="cursor:default">'+inner+'</div>')
+       +((adm&&assg.length)?'<button type="button" class="dots2" data-a="tourmenu" data-cid="'+cid+'" data-tid="'+e.id+'" aria-label="Options de la tournée">⋮</button>':'')+'</div>';}).join('')+'</div>';
+  if(admv){var ar=mrow('newt','+ Créer une tournée','Elle ne sera affectée à personne : utilise « Affecter » ensuite',null,'','k');
+    if(tl.length&&ml.length)ar+=mrow('casmulti','Affecter plusieurs personnes','',null,' data-cid="'+cid+'"');
+    ar+=mrow('cashisto','Historique','',null,' data-cid="'+cid+'"')+(tl.length?mrow('casclot','Clôturer l\'année','Toutes les tournées',null,' data-cid="'+cid+'"'):'')+mrow('casrefaire','Refaire les tournées','',null,' data-cid="'+cid+'"');
+    h+=mh('Administration')+'<div class="mcard">'+ar+'</div>';}
+  h+='<div class="mcard" style="margin-top:14px">'+mrow('join','Rejoindre avec un code ou un QR code','',null,'','k')+'</div>';
+  var b=$('#cas-body'); if(b)b.innerHTML=h;
+  if(tours&&mem){casCache={tours:tours,mem:mem}; if(adm)casClean(cid,tours);}
+}
+function memMenu(cid,mid){
+  if(!casCache||!isCasAdmin(cid))return; var m=casCache.mem.filter(function(x){return x.id===mid;})[0]; if(!m)return;
+  var tl=casCache.tours, p=principalOf(m,tl), at=' data-cid="'+cid+'" data-mid="'+mid+'"';
+  openPanel(panelHead(m.prenom||'?','Que faire avec cette personne ?')+'<div class="mcard">'
+   +(tl.length?mrow('casaff','Affecter à une tournée','',null,at):'')
+   +(p?mrow('casunaff','Retirer de la tournée','« '+esc(p.nom)+' »',null,at):'')
+   +mrow('caskick','Retirer de la caserne','',null,at+' data-nom="'+esc(m.prenom||'')+'"'+(m.admin?' data-adm="1"':''),'r')
+   +'</div><div class="mcard" style="margin-top:14px">'+mrow('cas','‹ Retour à la caserne','',null,' data-cid="'+cid+'"')+'</div>');
 }
 function casMemList(cid){var m=PRES.c[cid]; if(!m)return null; return Object.keys(m).map(function(i){return Object.assign({id:i},m[i]);}).sort(function(a,b){return (b.admin?1:0)-(a.admin?1:0)||String(a.prenom).localeCompare(String(b.prenom),'fr');});}
 function casLoad(cid){
@@ -1358,7 +1420,7 @@ function confirmCasAct(kind,val,titre,txt){
 }
 function kickMember(cid,mid){
   if(!fs||!isCasAdmin(cid))return;
-  caseDoc(cid).collection('membres').doc(mid).delete().then(function(){toast('Membre retiré'); casLoad(cid);}).catch(function(){toast('Échec (réseau ?)');});
+  caseDoc(cid).collection('membres').doc(mid).delete().then(function(){toast('Membre retiré'); casPanel(cid); casLoad(cid);}).catch(function(){toast('Échec (réseau ?)');});
 }
 function leaveCaserne(cid){
   var cs=casOf(cid); if(!cs)return;
@@ -1779,6 +1841,8 @@ document.addEventListener('click',function(e){
   else if(a==='caisse')caissePanel();
   else if(a==='casstopadm'){if(armed(t,1500))casStopAdmin(t.dataset.cid);}
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
+  else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
+  else if(a==='memall'){MEMALL[t.dataset.cid]=true; casLoad(t.dataset.cid);}
   else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
   else if(a==='casrefok'){if(armed(t,1500))casRefaire(t.dataset.cid,t.dataset.ts,t);}
   else if(a==='cashisto')casHistoPanel(t.dataset.cid);
