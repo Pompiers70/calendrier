@@ -283,15 +283,17 @@ input[type=text]{width:100%}
 .seg .sg span{font-size:15px}
 .plaque.st-boite small{line-height:1.05; font-size:10px; white-space:normal}
 .sg input[value=boite] + span{white-space:nowrap}
+.legend{gap:6px 9px; font-size:13px}
+.legend i{margin-right:4px; width:13px; height:13px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.12</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.13</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.12</p>
+  <p class="sub">Calendriers des pompiers · v5.13</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -429,7 +431,7 @@ function mapBlock(){
   var box='<div class="mapbox"><svg id="mapsvg" viewBox="0 0 600 500" role="img" aria-label="Plan des maisons de la tournée">'+(GEO?'<g id="bgt"></g>':BGIMG)+'<g id="mg"></g></svg><div class="mapcredit"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><div class="mapzoom"><button type="button" data-a="mapin" aria-label="Zoomer">+</button><button type="button" data-a="mapout" aria-label="Dézoomer">−</button></div></div>';
   var drawn=0,total=0; visibleStreets().forEach(function(s){streetNums(s.id).forEach(function(n){total++; if(DATA[s.id]&&DATA[s.id][n])drawn++;});});
   return chips+box
-   +'<div class="legend" style="margin:10px 0 0"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte</span></div>'
+   +'<div class="legend" style="margin:10px 0 0"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
    +'<p class="hint">Touche une maison pour voir son numéro, y aller avec Waze et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'
    +'<p class="note" style="margin:0 0 10px">'+(GEO?'Fond de carte : © OpenStreetMap (nécessite une connexion).':'Fond de carte : contributeurs OpenStreetMap, images fixes (elles deviennent floues en zoomant très près).')+'</p>'
    +'<div class="lks" style="margin:0 0 6px"><a class="lk" href="https://www.openstreetmap.org/#map=16/'+LAT0.toFixed(4)+'/'+LON0.toFixed(4)+'" target="_blank" rel="noopener">Ouvrir le fond de carte OpenStreetMap</a></div>'
@@ -758,7 +760,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.12';
+var DBG=[], VERSION='5.13';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1602,7 +1604,7 @@ function streetHTML(){
    +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'
    +(state.prune?'<p class="hint" style="color:var(--accent);font-weight:600;margin-top:0">Touche un numéro pour le retirer de la liste.</p>':'')
    +'<details class="add" style="margin:0 0 14px"><summary>Coller une liste de numéros</summary><form data-f="addlist"><textarea id="paste" rows="5" placeholder="Un numéro par ligne :&#10;1&#10;2&#10;2 bis&#10;3 ter&#10;4 A" autocomplete="off" aria-label="Liste de numéros"></textarea><button class="btn red" type="submit">Ajouter la liste</button></form></details>'
-   +'<div class="legend"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte</span></div>'
+   +'<div class="legend"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
    +(chips?'<div class="plaques'+(state.prune?' prune':'')+'">'+chips+'</div>':'<p class="empty">Aucun numéro pour l\'instant. Ajoute-les ci-dessus au fil de la tournée.</p>');
 }
 
