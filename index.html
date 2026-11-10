@@ -285,6 +285,9 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.sync{display:flex;align-items:center}
+.sdot{flex:0 0 10px;width:10px;height:10px;border-radius:50%;margin-right:9px}
+.stxt{margin-left:4px}
 .pk{display:flex;align-items:center;gap:14px;padding:14px 16px;margin:8px 0;border:1px solid var(--line,#333);border-radius:14px;cursor:pointer}
 .pk input{flex:0 0 22px;width:22px;height:22px;margin:0}
 .pk .rn{flex:1;min-width:0;font-size:20px;line-height:1.2}
@@ -317,12 +320,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.15</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.17</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.15</p>
+  <p class="sub">Calendriers des pompiers · v5.17</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -495,7 +498,7 @@ function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v));}catch(e){}
 var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me',''),left:lsGet('left',[]),admin:lsGet('admin',false)};
 var cache={},subs={},fs=null,scanSt={stream:null,timer:0,on:false},scriptP={};
 var SYNC_TXT={loading:'Connexion à la tournée…',local:'Synchronisation non activée : ventes enregistrées sur ce téléphone seulement',ok:'Synchronisé avec la tournée',slow:'Connexion lente : les données ne sont peut-être pas à jour',err:'Envoi impossible pour l\'instant, réessaie',perm:'Firebase refuse l\'accès : vérifie que les règles sont bien publiées',offline:'Hors connexion : tes ventes partiront dès que le réseau revient'};
-function setSync(s){state.sync=s; var e=$('#sync'); if(e)e.textContent=T.cur?(SYNC_TXT[s]||''):'';}
+function setSync(s){state.sync=s; var e=$('#sync'); if(!e)return; var tx=T.cur?(SYNC_TXT[s]||''):''; var col=s==='ok'?'#2ea44f':(s==='offline'?'#d93025':(s==='local'?'#888':'#f0a020')); e.innerHTML=tx?'<span class="sdot" style="background:'+col+'"></span><span class="stxt">'+tx+'</span>':'';}
 function fixRec(r){if(r&&r.statut==='absent')r.statut='repasse'; return r;}
 function loadT(code){if(cache[code])return cache[code]; var j=lsGet('t:'+code,null)||{}; var c={ventes:j.ventes||{},noms:j.noms||{},cfg:Object.assign(defCfg(),j.cfg||{})}; Object.keys(c.ventes).forEach(function(k){fixRec(c.ventes[k]);}); return (cache[code]=c);}
 function saveT(code){var c=cache[code]; if(c)lsSet('t:'+code,{ventes:c.ventes,noms:c.noms||{},cfg:c.cfg});}
@@ -578,7 +581,7 @@ function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.
 
 /* gestion des tournées */
 function drawHeader(){var t=tourOf(T.cur), e=$('#tname'); if(e)e.textContent=t?t.nom:'Aucune tournée affectée'; var tb=document.querySelector('.tabs'); if(tb)tb.hidden=!T.cur; updateBadge(); var cs=casOf(T.ccur), sp=$('#casname'); if(!sp){var sb=document.querySelector('header .sub'); if(sb){sp=document.createElement('span'); sp.id='casname'; sp.className='cpill'; sb.appendChild(sp);}} if(sp){sp.hidden=!cs; sp.textContent=cs?cs.nom:'';}}
-function setCur(code){T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render(); setTimeout(function(){if(typeof beat==='function')beat();},50);}
+function setCur(code){T.hold=false; T.cur=code; lsSet('cur',code); useT(code); state.street=null; state.q=''; mp.vb=null; mp.sel=null; closeSheet(); setSync(!fs?'local':(navigator.onLine?'loading':'offline')); render(); setTimeout(function(){if(typeof beat==='function')beat();},50);}
 function createTour(nom,geo){
   var code=genCode(); T.list.push({code:code,nom:nom,owner:true,par:T.me||''}); lsSet('list',T.list); var c=loadT(code); if(geo)c.cfg.geo=geo;
   if(fs){subscribe(code); cloudDo(function(){return docRef(code).set({nom:nom,cfg:cfgJSON(c.cfg),geo:geo?JSON.stringify(geo):null,creePar:T.me||'',creeLe:Date.now()});});}
@@ -752,6 +755,7 @@ function init(){
   T.list.forEach(function(t){loadT(t.code);});
   if(T.cur&&!tourOf(T.cur))T.cur=T.list[0]?T.list[0].code:null;
   if(T.cur)useT(T.cur);
+  T.hold=false; if(T.cur){var hc=T.cas.filter(function(x){return !x.visitor&&isCasAdmin(x.cid);})[0]; if(hc&&lsGet('aff:'+hc.cid,0)!==1)T.hold=true;}
   var h=(location.hash.match(/#t=([A-Za-z0-9-]+)/)||[])[1];
   setSync('loading'); render();
   initCloud().then(function(ok){
@@ -761,7 +765,7 @@ function init(){
     if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid); checkClosed(x.cid);}); startVie();}
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
-    if(!T.cur&&!h){var ac=T.cas.filter(function(x){return isCasAdmin(x.cid);})[0]; if(ac)setTimeout(function(){if(!T.cur)casPanel(ac.cid);},400);}
+    if((!T.cur||T.hold)&&!h){var ac=T.cas.filter(function(x){return isCasAdmin(x.cid);})[0]; if(ac)setTimeout(function(){if(!T.cur||T.hold)casPanel(ac.cid);},400);}
   });
   window.addEventListener('offline',function(){if(fs)setSync('offline');});
   window.addEventListener('online',function(){if(fs)setSync('ok');});
@@ -803,7 +807,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.15';
+var DBG=[], VERSION='5.17';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1489,7 +1493,10 @@ function principalCode(){
 }
 function openPrincipal(exclude){
   principalCode().then(function(code){
-    if(!code||code===exclude||code===T.cur)return;
+    var cs0=casOf(T.ccur); if(cs0&&isCasAdmin(cs0.cid))lsSet('aff:'+cs0.cid,code?1:0);
+    if(!code){return;}
+    if(code===T.cur){if(T.hold){T.hold=false; render();} return;}
+    if(code===exclude)return;
     if(tourOf(code))setCur(code); else joinCode(code).catch(function(){});
   }).catch(function(){});
 }
@@ -1625,7 +1632,7 @@ function requestRender(){if(mp.active){pendingRender=true;return;} var a=documen
 function render(){
   document.querySelectorAll('.tabs button').forEach(function(b){if(b.dataset.v===state.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   var m=$('#main'); drawHeader();
-  if(!T.cur){m.innerHTML=welcomeHTML(); setSync(state.sync); return;}
+  if(!T.cur||T.hold){m.innerHTML=welcomeHTML(); setSync(state.sync); return;}
   if(state.view==='tournee')m.innerHTML=state.street&&streetById(state.street)?streetHTML():streetsHTML();
   else if(state.view==='ventes')m.innerHTML=ventesHTML();
   else if(state.view==='carte')m.innerHTML=carteHTML();
