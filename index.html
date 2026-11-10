@@ -281,15 +281,17 @@ input[type=text]{width:100%}
 .sg.off{opacity:.42}
 .sg.off span{cursor:not-allowed}
 .seg .sg span{font-size:15px}
+.plaque.st-boite small{line-height:1.05; font-size:10px; white-space:normal}
+.sg input[value=boite] + span{white-space:nowrap}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.11</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.12</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.11</p>
+  <p class="sub">Calendriers des pompiers · v5.12</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -313,8 +315,10 @@ var REP_GAP=3600000, REP_NEED=3;
 function boiteDlg(){var old=$('#dlg'); if(old)old.remove(); var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true"><h3>Boîte aux lettres</h3><p style="font-size:21px;font-weight:700;margin:0 0 6px">3 repasses sans réponse.</p><p style="font-size:19px;margin:0 0 18px">Mets le calendrier dans la boîte aux lettres.</p><button type="button" class="primary" data-a="dlgno">OK, c\'est fait</button></div>'; document.body.appendChild(d);}
 function repN(r){return (r&&r.rep&&r.rep.length)||0;}
 function isAdm(){try{return canArchive();}catch(e){return false;}}
-function boiteOK(r){return repN(r)>=REP_NEED||(r&&r.statut==='boite')||isAdm();}
-function repHint(r){var n=repN(r); if(r&&r.statut==='boite')return 'Calendrier déposé dans la boîte aux lettres.'; if(n>=REP_NEED)return '3 repasses faites : tu peux choisir « Boîte aux lettres » si personne n\'ouvre.'; return 'Boîte : après 3 repasses espacées d\'1 h ('+n+'/3)';}
+var REP_SWAP=2;
+function lastRep(r){return (r&&r.rep&&r.rep.length)?r.rep[r.rep.length-1]:0;}
+function boiteSwap(r){return !!(r&&(r.statut==='boite'||(repN(r)>=REP_SWAP&&Date.now()-lastRep(r)>=REP_GAP)));}
+function repHint(r){var n=repN(r); if(r&&r.statut==='boite')return 'Calendrier déposé dans la boîte aux lettres.'; if(!n)return ''; if(boiteSwap(r))return ''; if(n>=REP_SWAP)return 'Prochaine visite (1 h minimum) : boîte aux lettres'; return 'Repasses comptées : '+n+'/'+REP_SWAP+' avant la boîte aux lettres';}
 function slug(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 var RUES=['Rue de Corcelles','Rue de Gémonval','Rue de la Berette','Rue de la Fontaine','Rue des 3 Fontaines','Rue des Blanchards','Rue des Champs Gresons','Rue des Grands Prés','Rue des Oiches','Impasse de Dravillars','Impasse des Grands Champs','Impasse des Oiches','Impasse des Prés Neufs','Chemin des Vignes','Grand Pré','Les Prés Neufs','Village de Crevans','La Chapelle'];
 var LD=['Aux Oiches','Combe de Crevans','Derrière chez Fromont','Derrière chez Parnin','Froide Terre','La Cotelle','La Machette','La Psaule (Enceinte)','Les Blotières','Les Buverons','Les Corvées','Prés Tonnery','Prés la Dame','Sur la Ville','Sur les Planches','Tillet (Enceinte)'];
@@ -754,7 +758,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.11';
+var DBG=[], VERSION='5.12';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1584,7 +1588,7 @@ function streetHTML(){
   nums.forEach(function(x){var r=state.ventes[rid(id,x)]; if(r&&r.statut==='vendu'){n++; sum+=r.montant||0;}});
   var v=villageOf(id);
   var chips=nums.map(function(x){var r=state.ventes[rid(id,x)], cls=r?'st-'+r.statut:'st-libre', sub='';
-    if(r)sub=r.statut==='vendu'?eur(r.montant):r.statut==='repasse'?('repasse'+(repN(r)?' '+repN(r)+'/3':'')):r.statut==='boite'?'boîte':'refus';
+    if(r)sub=r.statut==='vendu'?eur(r.montant):r.statut==='repasse'?('repasse'+(repN(r)?' '+Math.min(repN(r),REP_SWAP)+'/'+REP_SWAP:'')):r.statut==='boite'?'Boîte<br>aux lettres':'refus';
     return '<button type="button" class="plaque '+cls+(x.length>4&&!/^\d+ \S{1,8}$/.test(x)?' long':'')+'" data-a="chip" data-n="'+esc(x)+'"><b>'+plLabel(x)+'</b><small>'+sub+'</small></button>';}).join('');
   function seg(val){return '<button type="button" data-a="setvillage" data-v="'+val+'" aria-pressed="'+(v===val)+'">'+val+'</button>';}
   return '<button type="button" class="back" data-a="back">← Toutes les rues</button>'
@@ -1649,13 +1653,13 @@ function openSheet(street,num){
   var q=addrQ(street,num);
   var varRow=/^\d+$/.test(String(num))?'<p class="hint" style="margin:0 0 6px">Ajouter à la liste de cette rue :</p><div class="quick" style="margin:0 0 14px">'+['bis','ter','A','B'].map(function(sf){return '<button type="button" data-a="addvar" data-v="'+esc(num+' '+sf)+'">'+esc(num)+' '+sf+'</button>';}).join('')+'</div>':'';
   var pays=Object.keys(PAY).map(function(k){return '<label class="cb"><input type="checkbox" name="pay" value="'+k+'"'+(r&&r.paiement===k?' checked':'')+'><span class="box">✕</span><span>'+PAY[k]+'</span></label>';}).join('');
-  var radios=Object.keys(STAT).map(function(k){var lk=(k==='boite'&&!boiteOK(r)); return '<label class="sg'+(lk?' off':'')+'"'+(lk?' data-a="boitelock"':'')+'><input type="radio" name="st" value="'+k+'"'+(st===k?' checked':'')+(lk?' disabled':'')+'><span>'+STAT[k]+'</span></label>';}).join('');
+  var useB=boiteSwap(r), radios=['vendu',useB?'boite':'repasse','refus'].map(function(k){return '<label class="sg"'+(k==='boite'?' style="flex:1.8"':'')+'><input type="radio" name="st" value="'+k+'"'+((st===k||(k==='boite'&&st==='repasse'))?' checked':'')+'><span>'+(k==='boite'?'Boîte aux lettres':STAT[k])+'</span></label>';}).join('');
   $('#sheet').innerHTML='<div class="panel" role="dialog" aria-modal="true" aria-label="Fiche de vente">'
    +'<div class="ph"><div class="pl">'+esc(num)+'</div><div class="tt">'+esc(s?s.nom:'')+'<small>'+villageOf(street)+'</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div>'
    +'<div class="lks" style="margin:0 0 14px"><a class="lk go" href="'+esc(wazeUrl(q))+'" target="_blank" rel="noopener">Y aller avec Waze</a><a class="lk" href="'+esc(mapUrl(q))+'" target="_blank" rel="noopener">Plan</a></div>'
    +varRow
    +'<div class="seg" role="radiogroup" aria-label="Résultat du passage">'+radios+'</div>'
-   +'<p class="hint" id="rephint" style="margin:8px 2px 0">'+esc(repHint(r))+(isAdm()&&repN(r)<REP_NEED-1?' <button type="button" data-a="repsim" style="border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:4px 0;min-height:0">Test : simuler 2 repasses</button>':'')+'</p>'
+   +'<p class="hint" id="rephint" style="margin:8px 2px 0">'+esc(repHint(r))+(isAdm()&&!useB?' <button type="button" id="repsimb" data-a="repsim"'+(st==='repasse'?'':' hidden')+' style="border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:4px 0;min-height:0">Test : simuler 2 repasses</button>':'')+'</p>'
    +'<div id="vf"'+(st==='vendu'?'':' hidden')+'>'
    +'<label class="fld" for="f-nom">Nom de l\'acheteur</label><input type="text" id="f-nom" autocomplete="off" value="'+esc(r&&r.nom?r.nom:((state.noms&&state.noms[nomKey(street,num)])||''))+'">'+((!(r&&r.nom)&&state.noms&&state.noms[nomKey(street,num)])?'<p class="hint" style="margin:4px 0 0">Nom de la dernière fois : efface-le ou change-le si besoin.</p>':'')
    +'<label class="fld" for="f-mont">Montant (€)</label><input type="text" id="f-mont" inputmode="decimal" autocomplete="off" value="'+(r&&r.montant!=null?String(r.montant).replace('.',','):'')+'">'
@@ -1680,11 +1684,11 @@ function saveSheet(){
   }
   var r0=state.ventes[S.id]; if(r0&&r0.par)rec.par=r0.par;
   var rp=((r0&&r0.rep)||[]).slice(), msg='Enregistré', ms=2200, popBox=false;
-  if(st==='boite'&&rp.length<REP_NEED&&!(r0&&r0.statut==='boite')&&!isAdm()){$('#err').textContent='Il faut d\'abord 3 repasses (1 h d\'écart minimum).'; return;}
+  if(st==='boite'&&!(r0&&r0.statut==='boite')&&!boiteSwap(r0)){$('#err').textContent='Il faut d\'abord 2 repasses espacées d\'1 h.'; return;}
   if(st==='repasse'){var last=rp.length?rp[rp.length-1]:0;
-    if(!last||rec.ts-last>=REP_GAP){rp.push(rec.ts); if(rp.length===REP_NEED){rec.statut='boite'; st='boite'; msg='Enregistré en boîte aux lettres'; ms=1500; popBox=true;} else msg='Repasse '+rp.length+' sur '+REP_NEED+' notée';}
+    if(!last||rec.ts-last>=REP_GAP){rp.push(rec.ts); if(rp.length===REP_NEED){rec.statut='boite'; st='boite'; msg='Enregistré en boîte aux lettres'; ms=1500; popBox=true;} else msg='Repasse '+rp.length+' sur '+REP_SWAP+' notée';}
     else{var left=Math.ceil((REP_GAP-(rec.ts-last))/60000); msg='Repasse déjà notée : elle ne compte pas. Prochaine repasse comptée dans '+left+' min.'; ms=5000;}}
-  if(st==='boite'&&!popBox){msg='Boîte aux lettres notée : dépose le calendrier dans la boîte.'; ms=4500;}
+  if(st==='boite'&&!popBox){popBox=!(r0&&r0.statut==='boite'); msg='Enregistré en boîte aux lettres'; ms=1500;}
   if(rp.length)rec.rep=rp;
   putVente(rec); closeSheet(); toast(msg,ms); if(popBox)boiteDlg();
 }
@@ -1811,7 +1815,7 @@ document.addEventListener('click',function(e){
   else if(a==='sharecode'){var st2=tourOf(T.cur); if(st2){var msg='Rejoins la tournée « '+st2.nom+' » : code '+fmtCode(st2.code)+' '+shareUrl(st2.code); if(navigator.share)navigator.share({title:'Tournée calendriers',text:msg}).catch(function(){}); else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(function(){toast('Lien copié');});}}
   else if(a==='save')saveSheet();
   else if(a==='amt'){$('#f-mont').value=t.dataset.v; $('#err').textContent='';}
-  else if(a==='repsim'){if(S&&isAdm()){var s9=streetById(S.rue), n9=Date.now(), r9=state.ventes[S.id], rc={id:S.id,rue:S.rue,rueNom:s9?s9.nom:'',numero:S.numero,statut:'repasse',nom:'',montant:null,paiement:'',ts:n9,rep:[n9-2*REP_GAP-2000,n9-REP_GAP-1000]}; if(r9&&r9.par)rc.par=r9.par; var st9=S.rue, nu9=S.numero; putVente(rc); openSheet(st9,nu9); toast('2 repasses simulées : fais la 3e avec Repasse',3500);}}
+  else if(a==='repsim'){if(S&&isAdm()){var s9=streetById(S.rue), n9=Date.now(), r9=state.ventes[S.id], rc={id:S.id,rue:S.rue,rueNom:s9?s9.nom:'',numero:S.numero,statut:'repasse',nom:'',montant:null,paiement:'',ts:n9,rep:[n9-2*REP_GAP-2000,n9-REP_GAP-1000]}; if(r9&&r9.par)rc.par=r9.par; var st9=S.rue, nu9=S.numero; putVente(rc); openSheet(st9,nu9); toast('2 repasses simulées (test)',2000);}}
   else if(a==='boitelock')toast('Boîte aux lettres : possible après 3 repasses espacées d\'au moins 1 h.',3500);
   else if(a==='reset'){if(armed(t)){delVente(S.id); closeSheet(); toast('Remis à vide');}}
   else if(a==='remove'){if(armed(t)){var id=S.rue,num=S.numero; hideNum(id,num); var rid2=S.id; if(state.ventes[rid2])delVente(rid2); putCfg(); closeSheet(); toast('Numéro retiré');}}
@@ -1838,7 +1842,7 @@ document.addEventListener('change',function(e){var t=e.target;
   if(t.dataset&&t.dataset.a==='secchk'){var sl=$('#nt-seclist'); if(sl){if(t.checked){ntSecLoad();}else sl.innerHTML='';} return;}
   if(t.dataset&&t.dataset.a==='chq'){cai().ch[t.dataset.id]=t.checked; caisseUpdate(); saveCaisse(); return;}
   if(t.name==='pay'&&t.checked)document.querySelectorAll('#sheet input[name=pay]').forEach(function(x){if(x!==t)x.checked=false;});
-  if(t.name==='st'){$('#vf').hidden=t.value!=='vendu';}
+  if(t.name==='st'){$('#vf').hidden=t.value!=='vendu'; var rb=$('#repsimb'); if(rb)rb.hidden=t.value!=='repasse';}
 });
 document.addEventListener('input',function(e){if(e.target.id==='nt-q')ntSearch(e.target.value); if(e.target.id==='nt-nom')NT.edited=true; if(e.target.id==='q'){state.q=e.target.value; $('#vlist').innerHTML=rowsVentes();}});
 document.addEventListener('focusout',function(){setTimeout(function(){if(pendingRender){var a=document.activeElement; if(!(a&&a.matches&&a.matches('#main input, #main select, #main textarea'))){pendingRender=false; render();}}},50);});
