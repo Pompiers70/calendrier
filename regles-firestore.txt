@@ -12,6 +12,12 @@ service cloud.firestore {
     match /tournees/{code}/pres/{id} {
       allow read, write: if code.matches('[A-Z0-9]{12}');
     }
+    match /licences/{code} {
+      allow get: if code.matches('[A-Z0-9]{12}');
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (resource.data.used == false && request.resource.data.used == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used','cid','nom','usedTs']));
+    }
     match /casernes/{cid} {
       allow get, create: if cid.matches('[a-z0-9-]{3,60}');
       allow update: if cid.matches('[a-z0-9-]{3,60}')

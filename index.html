@@ -285,6 +285,7 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.copy{color:var(--muted);font-size:12px;line-height:1.5;text-align:center;margin:22px 8px 8px}
 .sync{display:flex;align-items:center}
 .sdot{flex:0 0 10px;width:10px;height:10px;border-radius:50%;margin-right:9px}
 .stxt{margin-left:4px}
@@ -320,12 +321,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.17</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.18</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.17</p>
+  <p class="sub">Calendriers des pompiers · v5.18</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -656,12 +657,13 @@ function menuPanel(){
   h+=mh('Ma caserne')+'<div class="mcard">'+casMenuRows()+'</div>';
   var nb=unread();
   h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
-  if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+'</div>';
+  if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+mrow('licences','Licences','Codes pour créer une caserne')+'</div>';
   var dg='';
   if(cur&&canArchive()&&!(tourOf(T.cur)&&T.list.filter(function(x){return x.code===T.cur&&x.cid;})[0]))dg+=mrow('histo','Historique de la tournée');
   if(cur)dg+=mrow('leave','Quitter cette tournée','',null);
   if(cur&&canDelete(cur))dg+=mrow('delete','Supprimer pour tout le monde','',null,'','r');
   if(dg)h+='<div class="dng2">'+dg+'</div>';
+  h+='<p class="copy">Calendriers des pompiers · par Noah Fournier · © 2026<br>Tous droits réservés. Reproduction ou réutilisation interdite sans autorisation.</p>';
   openPanel(h);
 }
 function joinPanel(){
@@ -807,7 +809,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.17';
+var DBG=[], VERSION='5.18';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1269,20 +1271,26 @@ function onbStep1(){
     if(s.exists){var d=s.data()||{}; joinCaserne(cid,d.nom||nom);}
     else{
       $('#onb').querySelector('.onbbox').innerHTML='<h2>Nouvelle caserne</h2><p class="hint" style="font-size:17px">« <b>'+esc(nom)+'</b> » n\'existe pas encore. Tu vas la créer et tu en seras <b>l\'administrateur</b>.</p><p class="hint">Choisis ton code administrateur : il te permettra de rejoindre n\'importe quelle tournée de ta caserne. Garde-le bien, personne ne pourra le retrouver.</p>'
-       +'<form data-f="onb2" data-nom="'+esc(nom)+'"><label class="fld" for="ob-pw">Code administrateur (8 caractères minimum)</label><input type="text" id="ob-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><label class="fld" for="ob-pw2">Retape-le</label><input type="text" id="ob-pw2" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Créer la caserne</button></form><button type="button" class="mi" data-a="onbback" style="margin-top:12px">Retour</button>';
+       +'<form data-f="onb2" data-nom="'+esc(nom)+'">'+(T.admin?'':'<label class="fld" for="ob-lic">Code de licence (donné par l\'administrateur de l\'app)</label><input type="text" id="ob-lic" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">')+'<label class="fld" for="ob-pw">Code administrateur (8 caractères minimum)</label><input type="text" id="ob-pw" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><label class="fld" for="ob-pw2">Retape-le</label><input type="text" id="ob-pw2" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Créer la caserne</button></form><button type="button" class="mi" data-a="onbback" style="margin-top:12px">Retour</button>';
     }
   }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées (voir regles-firestore.txt).':'Connexion impossible. Vérifie ton réseau.'+(e&&e.code?' ('+e.code+')':''));});
 }
 function onbStep2(nom){
   var pw=$('#ob-pw').value, pw2=$('#ob-pw2').value, cid=cidOf(nom);
   if(pw.length<8){onbErr('8 caractères minimum.'); return;} if(pw!==pw2){onbErr('Les deux codes ne sont pas identiques.'); return;}
-  $('#ob-go').disabled=true; onbErr('Création…');
-  newKeys(pw).then(function(k){
+  var lic=T.admin?'':(($('#ob-lic')||{value:''}).value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!T.admin&&lic.length!==12){onbErr('Entre le code de licence (12 caractères).'); return;}
+  $('#ob-go').disabled=true; onbErr('Vérification…');
+  var lp=T.admin?Promise.resolve():fs.collection('licences').doc(lic).get().then(function(sn){
+    var d=sn.exists?(sn.data()||{}):null; if(!d||d.used)throw {code:'badlic'};
+    return fs.collection('licences').doc(lic).update({used:true,cid:cid,nom:nom,usedTs:Date.now()});
+  });
+  lp.then(function(){onbErr('Création…'); return newKeys(pw);}).then(function(k){
     var mid=genCode();
     return caseDoc(cid).set({nom:nom,pub:k.pub,wrap:k.wrap,creeLe:Date.now()}).then(function(){
       return caseDoc(cid).collection('membres').doc(mid).set({prenom:T.me,ts:Date.now(),admin:true});
     }).then(function(){lsSet('ak:'+cid,b64(k.pk8)); T.cas.push({cid:cid,nom:nom,mid:mid,admin:true}); T.ccur=cid; saveCas(); subscribeCasMem(cid); beat(); var o=$('#onb'); if(o)o.remove(); toast('Caserne créée : tu en es l\'administrateur'); render();});
-  }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées.':'Création impossible (réseau ?)'+(e&&e.code?' ('+e.code+')':''));;});
+  }).catch(function(e){$('#ob-go').disabled=false; onbErr(e&&e.code==='badlic'?'Code de licence invalide ou déjà utilisé.':(e&&e.code==='permission-denied'?'Accès refusé par Firebase : les nouvelles règles ne sont pas publiées (voir regles-firestore.txt).':'Création impossible (réseau ?)'+(e&&e.code?' ('+e.code+')':'')));});
 }
 function joinCaserne(cid,nom){
   var mid=genCode();
@@ -1514,6 +1522,33 @@ function casClean(cid,tours){
     if(!k)return;
     return Promise.all(tours.map(function(e){return decWith(k.key,e[k.f]).then(function(code){return docRef(code).get();}).then(function(s){var d=s.exists?(s.data()||{}):null; if(!d||d.supprime){return caseDoc(cid).collection('tournees').doc(e.id).delete().then(function(){return 1;});} return 0;}).catch(function(){return 0;});}));
   }).then(function(r){cleaning[cid]=false; if(r&&r.some(function(x){return x;})&&$('#cas-body'))casLoad(cid);}).catch(function(){cleaning[cid]=false;});
+}
+
+/* ---------- licences (administrateur de l'app) ---------- */
+function licDate(ts){var d=new Date(ts||0); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();}
+function licPanel(){
+  openPanel(panelHead('Licences','Codes à usage unique pour créer une caserne')
+   +'<form data-f="licnew"><label class="fld" for="lic-note">Pour qui ? (caserne ou amicale)</label><input type="text" id="lic-note" autocomplete="off" placeholder="Ex. : Amicale CIP Lure"><button type="submit" class="primary">Générer un code</button></form>'
+   +'<p class="hint" id="lic-st">Chargement…</p><div id="lic-list"></div>');
+  licLoad();
+}
+function licLoad(){
+  if(!fs)return;
+  adminReady().then(function(){return fs.collection('licences').get();}).then(function(snap){
+    var rows=snap.docs.map(function(d){var x=d.data()||{}; x.code=d.id; return x;}).sort(function(a,b){return (b.cree||0)-(a.cree||0);});
+    var st=$('#lic-st'); if(!st)return; st.textContent=rows.length?pl(rows.length,'licence délivrée','licences délivrées'):'Aucune licence délivrée.';
+    $('#lic-list').innerHTML=rows.map(function(r){
+      return '<div class="mcard" style="padding:14px 16px;margin:10px 0"><div style="font-size:21px;letter-spacing:.5px;font-weight:700">'+esc(fmtCode(r.code))+'</div>'
+       +'<div class="note" style="margin:4px 0 0">'+esc(r.note||'Sans nom')+' · créée le '+licDate(r.cree)+'</div>'
+       +(r.used?'<div class="note" style="margin:6px 0 0"><b>Utilisée</b> par '+esc(r.nom||r.cid||'?')+' le '+licDate(r.usedTs)+'</div>'
+        :'<div style="display:flex;gap:10px;margin-top:10px"><button type="button" class="mi" data-a="liccopy" data-code="'+r.code+'" style="flex:1">Copier</button><button type="button" class="lk" data-a="licdel" data-code="'+r.code+'" style="color:var(--accent)">Révoquer</button></div>')+'</div>';}).join('');
+  }).catch(function(e){var st=$('#lic-st'); if(st)st.textContent=adminDenied(e);});
+}
+function licNew(){
+  var note=(($('#lic-note')||{value:''}).value||'').trim().slice(0,60), code=genCode();
+  adminReady().then(function(){return fs.collection('licences').doc(code).set({note:note,cree:Date.now(),used:false});}).then(function(){
+    var i=$('#lic-note'); if(i)i.value=''; toast('Code créé'); licLoad();
+  }).catch(function(e){toast(adminDenied(e));});
 }
 
 
@@ -1835,6 +1870,9 @@ document.addEventListener('click',function(e){
   else if(a==='casaffset'){var cid9=t.dataset.cid, tid9=t.dataset.tid||null; affectMember(cid9,t.dataset.mid,tid9).then(function(){casPanel(cid9);}).catch(function(){toast('Échec (réseau ?)');});}
   else if(a==='casunlock'){casUnlockPanel(t.dataset.cid);}
   else if(a==='allcas'){allCasPanel();}
+  else if(a==='licences'){licPanel();}
+  else if(a==='liccopy'){var lc=t.dataset.code; (navigator.clipboard?navigator.clipboard.writeText(fmtCode(lc)):Promise.reject()).then(function(){toast('Code copié');},function(){toast(fmtCode(lc));});}
+  else if(a==='licdel'){if(armed(t,1500)){adminReady().then(function(){return fs.collection('licences').doc(t.dataset.code).delete();}).then(function(){toast('Licence révoquée'); licLoad();}).catch(function(e){toast(adminDenied(e));});}}
   else if(a==='secall'||a==='secnone'){[].forEach.call(document.querySelectorAll('input[name=secst]'),function(x){x.checked=(a==='secall');});}
   else if(a==='tourmenu'){tourMenuPanel(t.dataset.cid,t.dataset.tid);}
   else if(a==='casunaff'){casUnaff(t.dataset.cid,t.dataset.mid);}
@@ -1904,6 +1942,7 @@ document.addEventListener('submit',function(e){
   var f=e.target.closest('form[data-f]'); if(!f)return; e.preventDefault();
   if(f.dataset.f==='newt'){submitNew();}
   else if(f.dataset.f==='onb1'){onbStep1();}
+  else if(f.dataset.f==='licnew'){licNew();}
   else if(f.dataset.f==='casmulti'){casMultiDo(f.dataset.cid);}
   else if(f.dataset.f==='onb2'){onbStep2(f.dataset.nom);}
   else if(f.dataset.f==='casunlock'){casUnlock(f.dataset.cid,$('#cu-pw').value);}
