@@ -352,12 +352,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.22</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.23</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.22</p>
+  <p class="sub">Calendriers des pompiers · v5.23</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -835,7 +835,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.22';
+var DBG=[], VERSION='5.23';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1773,7 +1773,7 @@ function feuilleHTML(){
     h+='<section class="fv"><h2>'+esc(v)+'</h2><div class="fcols">';
     L.forEach(function(x){
       h+='<div class="fr"><h3>'+esc(x.s.nom)+'</h3><table><thead><tr><th class="n">N°</th><th>Nom</th><th class="m">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
-      x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='repasse'?('Repasse'+(typeof repN==='function'&&repN(r)?' ('+repN(r)+')':'')):st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':'Libre';
+      x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre'; if(st==='repasse')st='vide';
         h+='<tr><td class="n">'+esc(n)+'</td><td>'+esc(r&&r.nom||'')+'</td><td class="m">'+(st==='vendu'&&r.montant!=null&&r.montant!==''?esc(eur(r.montant)):'')+'</td><td>'+esc(st==='vendu'?(PAY[r.paiement]||''):'')+'</td><td class="s s-'+st+'">'+lab+'</td></tr>';});
       h+='</tbody></table></div>';});
     h+='</div></section>';});
