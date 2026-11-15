@@ -305,7 +305,7 @@ input[type=text]{width:100%}
 @media print{@page{size:A4;margin:12mm}
  body>*:not(#pz){display:none!important}
  #pz{display:block!important;background:#fff;color:#111;font-family:Arial,sans-serif}
- html,body{background:#fff!important}
+ html,body{background:#fff!important;padding:0!important;margin:0!important}
  .fv h2,.fr h3,.s-vendu,.s-repasse,.s-refus,.s-boite{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 #mapsvg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .copy{color:var(--muted);font-size:12px;line-height:1.5;text-align:center;margin:22px 8px 8px}
@@ -359,15 +359,35 @@ input[type=text]{width:100%}
 .pgb{position:relative; background:#fff; border-radius:4px; box-shadow:0 2px 12px rgba(0,0,0,.35); overflow:hidden}
 .pg{position:absolute; left:0; top:0; width:186mm; height:273mm; padding:12mm; box-sizing:content-box; transform-origin:0 0; background:#fff; color:#111; font-family:Arial,sans-serif; font-size:12px; overflow:hidden}
 .pgp .fcols{column-count:2; column-gap:10px}.pgp .fr{font-size:10.5px; break-inside:avoid; margin-bottom:8px}.pgp .fr table,.pgp .fr th,.pgp .fr td{font-size:10.5px}.pgp .fr h3{font-size:12.5px}
+.pcols{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start}.pcol{min-width:0}
+.vh{font-size:15px; font-weight:700; margin:0 0 6px; padding:4px 8px; background:#111; color:#fff; border-radius:4px; -webkit-print-color-adjust:exact; print-color-adjust:exact}
+.pcol .fr{margin:0 0 8px}
+.ppg{height:268mm; overflow:hidden}.ppg.brk{break-after:page}
+.fiche{font-size:12px; color:#111}.ftitle{border:2px solid #111; text-align:center; font-weight:800; font-size:20px; padding:6px; margin-bottom:10px}
+.fk{width:100%; border-collapse:collapse; margin:0 0 8px; table-layout:fixed}.fk th,.fk td{border:1.5px solid #111; padding:2px 6px; text-align:center; font-size:12px; height:17px}
+.fk th{font-weight:700; background:#eee; -webkit-print-color-adjust:exact; print-color-adjust:exact}.fk td.r{text-align:right; font-style:italic}.fk tr.tt td{font-weight:700}
+.fkh{font-weight:800; font-size:13px; border:2px solid #111; display:inline-block; padding:2px 10px; margin:2px 0 3px}
+.fg td{font-weight:700}.fg td.r{font-style:normal}
+.band{margin:0 0 10px}.band .vh{margin:0 0 6px}
+.fiche2{font-size:12px; color:#111; font-family:Arial,sans-serif}
+.ft2{border:2.5px solid #111; text-align:center; font-weight:800; font-size:19px; padding:6px 8px; margin:0 3% 14px; text-transform:uppercase}
+.fbk{position:relative; margin:0 0 10px 34%; width:52%}
+.fbl{position:absolute; left:-34%; width:32%; top:0; border:2px solid #111; font-weight:700; font-size:12px; text-align:center; padding:2px 4px; background:#fff}
+.fk2{width:100%; border-collapse:collapse; table-layout:fixed}.fk2 th,.fk2 td{border:1.5px solid #111; padding:1px 6px; text-align:center; font-size:11.5px; height:18px; line-height:16px}
+.fk2 th{font-weight:400; background:#fff}.fk2 td.r{text-align:right; font-style:italic}.fk2 tr.tt td{font-weight:700; border-top:2px solid #111}
+.frow,.frow2{display:grid; align-items:center; margin-bottom:6px}.frow{grid-template-columns:36% 64%}.frow2{grid-template-columns:68% 32%}
+.fl{text-align:right; font-style:italic; font-weight:700; font-size:11.5px; padding-right:6px}
+.fx{border:2px solid #111; min-height:22px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px}
+.pgp .fr td{padding:2px 6px!important}.pgp .fr th{padding:2px 6px!important}.pgp .fr h3{padding:3px 8px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.30</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.32</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.30</p>
+  <p class="sub">Calendriers des pompiers · v5.32</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -854,7 +874,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.30';
+var DBG=[], VERSION='5.32';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1798,44 +1818,104 @@ function geoPlace(id){
   }).catch(function(){});
 }
 
-/* ---------- feuille A4 à imprimer ---------- */
-function feuilleHTML(){
-  var t=tourOf(T.cur), cfgR=state.config.rues, tot=0, nb=0;
-  var byV={}; VILLAGES.forEach(function(v){byV[v]=[];});
+/* ---------- feuille A4 : pages compactes + fiche de caisse ---------- */
+function feuilleData(){
+  var t=tourOf(T.cur), cfgR=state.config.rues, tot=0, nb=0, byV={}, order=[];
+  VILLAGES.forEach(function(v){byV[v]=[];});
   allStreets().forEach(function(s){ if(cfgR&&cfgR.indexOf(s.id)<0)return; var nums=streetNums(s.id); if(!nums.length)return; var v=villageOf(s.id); (byV[v]=byV[v]||[]).push({s:s,nums:nums}); });
   Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut==='vendu'){nb++; tot+=Number(r.montant)||0;}});
   var d=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
-  var h='<div class="fh"><div><b>'+esc(t?t.nom:'Tournée')+'</b><span>Calendriers des pompiers · '+esc(d)+'</span></div><div class="ft">'+pl(nb,'calendrier vendu','calendriers vendus')+' · '+esc(eur(tot))+'</div></div>';
-  Object.keys(byV).forEach(function(v){ var L=byV[v]; if(!L||!L.length)return; L.sort(function(a,b){return a.s.nom.localeCompare(b.s.nom,'fr');});
-    h+='<section class="fv"><h2>'+esc(v)+'</h2><div class="fcols">';
-    L.forEach(function(x){
-      h+='<div class="fr"><h3>'+esc(x.s.nom)+'</h3><table><thead><tr><th class="n">N°</th><th>Nom</th><th class="m">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
-      x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre'; if(st==='repasse')st='vide';
-        h+='<tr><td class="n">'+esc(n)+'</td><td>'+esc(r&&r.nom||'')+'</td><td class="m">'+(st==='vendu'&&r.montant!=null&&r.montant!==''?esc(eur(r.montant)):'')+'</td><td>'+esc(st==='vendu'?(PAY[r.paiement]||''):'')+'</td><td class="s s-'+st+'">'+lab+'</td></tr>';});
-      h+='</tbody></table></div>';});
-    h+='</div></section>';});
-  return h;
+  var head='<div class="fh"><div><b>'+esc(t?t.nom:'Tournée')+'</b><span>Calendriers des pompiers · '+esc(d)+'</span></div><div class="ft">'+pl(nb,'calendrier vendu','calendriers vendus')+' · '+esc(eur(tot))+'</div></div>';
+  var vil=Object.keys(byV).filter(function(v){return byV[v]&&byV[v].length;}).map(function(v){byV[v].sort(function(a,b){return a.s.nom.localeCompare(b.s.nom,'fr');}); return {v:v,items:byV[v]};});
+  return {head:head,villages:vil};
 }
+function frameHTML(x,nums,suite){
+  var h='<div class="fr"><h3>'+esc(x.s.nom)+(suite?' (suite)':'')+'</h3><table><thead><tr><th class="n">N°</th><th>Nom</th><th class="m">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
+  nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre'; if(st==='repasse')st='vide';
+    h+='<tr><td class="n">'+esc(n)+'</td><td>'+esc(r&&r.nom||'')+'</td><td class="m">'+(st==='vendu'&&r.montant!=null&&r.montant!==''?esc(eur(r.montant)):'')+'</td><td>'+esc(st==='vendu'?(PAY[r.paiement]||''):'')+'</td><td class="s s-'+st+'">'+lab+'</td></tr>';});
+  return h+'</tbody></table></div>';
+}
+/* ----- fiche de caisse (remplie automatiquement) ----- */
+function ficheData(){
+  var an=new Date().getMonth()>=7?new Date().getFullYear()+1:new Date().getFullYear(), V=[], cq={}, nbv=0, nbp=0, byV={}, tot=0;
+  Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu')return; nbv++; var m=cts(r.montant||0); tot+=m;
+    if(r.paiement==='cheque'||r.paiement==='especes')nbp++; if(r.paiement==='cheque')cq[m]=(cq[m]||0)+1;
+    var v=villageOf(r.rue); byV[v]=(byV[v]||0)+1;});
+  var c=cai0(), n=c.mode==='chacun'?null:(c.n||{}), bil=[], pie=[], tb=0, tp=0;
+  if(!n){n={}; var per=c.per||{}; Object.keys(per).forEach(function(w){var q=(per[w]||{}).n||{}; Object.keys(q).forEach(function(d){n[d]=(n[d]||0)+q[d];});});}
+  BILLETS.forEach(function(d){var q=n[d]||0; tb+=q*cts(d); bil.push({d:d,n:q});});
+  PIECES.forEach(function(d){var q=n[d]||0; tp+=q*cts(d); if(d>=0.1||q)pie.push({d:d,n:q});});
+  var chq=Object.keys(cq).map(Number).sort(function(a,b){return a-b;}).map(function(k){return {m:k,n:cq[k]};}), tc=chq.reduce(function(s,x){return s+x.m*x.n;},0);
+  var coms=VILLAGES.map(function(v){return {v:v,n:byV[v]||0};});
+  return {an:an,communes:VILLAGES.slice(),chq:chq,tc:tc,nc:chq.reduce(function(s,x){return s+x.n;},0),bil:bil,tb:tb,pie:pie,tp:tp,total:tot,distrib:nbv,payes:nbp,coms:coms};
+}
+function ficheHTML(){
+  var F=ficheData(), t=tourOf(T.cur);
+  function e(c){return c?esc(eur(c/100)):'';}
+  function money(d){return (d>=1?(Math.round(d)===d?d+',00':String(d).replace('.',',')+'0'):String(d).replace('.',',').padEnd(4,'0'))+' €';}
+  function tbl(label,rows,tl,tn,ts){return '<div class="fbk"><div class="fbl">'+label+'</div><table class="fk2"><colgroup><col style="width:36%"><col style="width:32%"><col style="width:32%"></colgroup><tr><th>Montant</th><th>Nombre</th><th>Somme</th></tr>'+rows+'<tr class="tt"><td class="r">'+tl+'</td><td>'+tn+'</td><td>'+ts+'</td></tr></table></div>';}
+  function blank(n){var s=''; for(var i=0;i<n;i++)s+='<tr><td>&nbsp;</td><td></td><td></td></tr>'; return s;}
+  var cr=F.chq.map(function(x){return '<tr><td class="r">'+e(x.m)+'</td><td>'+x.n+'</td><td>'+e(x.m*x.n)+'</td></tr>';}).join('')+blank(Math.max(0,10-F.chq.length));
+  var br=F.bil.map(function(x){return '<tr><td class="r">'+money(x.d)+'</td><td>'+(x.n||'')+'</td><td>'+e(x.n*cts(x.d))+'</td></tr>';}).join('');
+  var pr=F.pie.map(function(x){return '<tr><td class="r">'+money(x.d)+'</td><td>'+(x.n||'')+'</td><td>'+e(x.n*cts(x.d))+'</td></tr>';}).join('');
+  var cm=F.communes.map(function(v){return '<tr><td>'+esc(v)+'</td></tr>';}).join('')+(F.communes.length<4?new Array(4-F.communes.length+1).join('<tr><td>&nbsp;</td></tr>'):'');
+  var bt=F.coms.map(function(x){return '<tr><td>'+esc(x.v)+'</td><td>'+x.n+'</td></tr>';}).join('')+(F.coms.length<4?new Array(4-F.coms.length+1).join('<tr><td>&nbsp;</td><td></td></tr>'):'');
+  return '<div class="fiche2"><div class="ft2">FICHE DE CAISSE'+(t?' · '+esc(t.nom):'')+'</div>'
+   +'<div class="fbk"><table class="fk2"><tr><th>Commune</th></tr>'+cm+'</table></div>'
+   +tbl('Chèques',cr,'Total chèques :',F.nc||'',e(F.tc))+tbl('Billets',br,'Total billets :','',e(F.tb))+tbl('Pièces',pr,'Total pièces :','',e(F.tp))
+   +'<div class="fbk frow"><span class="fl">TOTAL GÉNÉRAL :</span><div class="fx">'+(F.total?e(F.total):'0 €')+'</div></div>'
+   +'<div class="fbk frow2"><span class="fl">Nombre de calendriers distribués :</span><div class="fx">'+F.distrib+'</div></div>'
+   +'<div class="fbk frow2"><span class="fl">Nombre de calendriers payés :</span><div class="fx">'+F.payes+'</div></div>'
+   +'<div class="fbk" style="margin-top:12px"><table class="fk2"><colgroup><col style="width:68%"><col style="width:32%"></colgroup><tr><th>COMMUNE</th><th>NOMBRES</th></tr>'+bt+'</table></div></div>';
+}
+/* ----- pagination : village par village, bandes sous un titre, rues jamais coupées entre deux feuilles ----- */
 function feuillePages(){
-  var z=document.createElement('div'); z.className='pgp'; z.style.cssText='position:absolute;left:-9999px;top:0;width:186mm;font-size:12px'; z.innerHTML=feuilleHTML(); document.body.appendChild(z);
-  var H=930, fhd=z.querySelector('.fh'), headH=fhd?fhd.offsetHeight+12:0, secs=[].slice.call(z.querySelectorAll('.fv')), pages=[], cur, used;
-  function np(){cur=[]; pages.push(cur); used=pages.length===1?headH:0;}
-  np();
-  secs.forEach(function(s){
-    var h=s.offsetHeight, cap=H-(pages.length===1?headH:0);
-    if(h<=H-(used&&pages.length===1?0:0)&&used+h<=H){cur.push(s.outerHTML); used+=h; return;}
-    if(h<=H-(pages.length===1?0:0)&&h<=H){np(); cur.push(s.outerHTML); used=h; return;}
-    var v=s.querySelector('h2').textContent, fr=[].slice.call(s.querySelectorAll('.fr')), th=s.querySelector('h2').offsetHeight+16, first=true;
-    if(used>0&&used+th+160>H)np();
-    var cA=used+th, cB=used+th, items=[];
-    function flush(){cur.push('<section class="fv"><h2>'+esc(v)+(first?'':' (suite)')+'</h2><div class="fcols">'+items.join('')+'</div></section>'); items=[]; first=false;}
-    fr.forEach(function(e){var eh=e.offsetHeight+8, col=cA<=cB?'A':'B', c=col==='A'?cA:cB;
-      if(c+eh>H&&items.length){flush(); np(); cA=th; cB=th; col='A'; c=cA;}
-      items.push(e.outerHTML); if(col==='A')cA=c+eh; else cB=c+eh;});
-    if(items.length){flush(); used=Math.max(cA,cB);}
+  var D=feuilleData(), CH=992, BG=8, z=document.createElement('div'); z.className='pgp'; z.style.cssText='position:absolute;left:-9999px;top:0;width:186mm;font-size:12px';
+  z.innerHTML=D.head+'<div class="pcol" id="pmeas"></div>'; document.body.appendChild(z);
+  var headH=z.querySelector('.fh').offsetHeight+12, M=z.querySelector('#pmeas'); M.style.width='calc((186mm - 10px) / 2)';
+  M.innerHTML='<div class="vh">X</div>'; var vhH=M.firstChild.offsetHeight+6;
+  function hOf(html){M.innerHTML=html; return M.firstChild.offsetHeight+8;}
+  var FULL=CH-vhH-BG;
+  var VI=D.villages.map(function(V){var arr=[];
+    V.items.forEach(function(x){
+      var h=hOf(frameHTML(x,x.nums,false));
+      if(h>0.5*FULL&&x.nums.length>=8){var k=Math.ceil(x.nums.length/2), a=x.nums.slice(0,k), b=x.nums.slice(k), A=frameHTML(x,a,false), B=frameHTML(x,b,true), ha=hOf(A), hb=hOf(B);
+        arr.push({pair:true,ha:ha,hb:hb,h:Math.max(ha,hb),html:[A,B],key:x.s.nom});}
+      else arr.push({h:h,html:frameHTML(x,x.nums,false),key:x.s.nom});});
+    return {v:V.v,items:arr};});
+  document.body.removeChild(z);
+  var pages=[], R=0;
+  function newPage(){pages.push({bands:[]}); R=CH-(pages.length===1?headH:0);}
+  function bandAttempt(pend,cap){
+    var L=[],Rr=[],uL=0,uR=0,taken=[];
+    pend.forEach(function(it){ if(!it.pair)return;
+      if(Math.abs(uL-uR)<30&&it.ha<=cap-uL&&it.hb<=cap-uR){L.push(it.html[0]); Rr.push(it.html[1]); uL+=it.ha; uR+=it.hb; taken.push(it);}});
+    pend.forEach(function(it){ if(it.pair)return;
+      var short=uL<=uR; 
+      if(short&&uL+it.h<=cap){L.push(it.html); uL+=it.h; taken.push(it);}
+      else if(!short&&uR+it.h<=cap){Rr.push(it.html); uR+=it.h; taken.push(it);}
+      else if(short&&uR+it.h<=cap){Rr.push(it.html); uR+=it.h; taken.push(it);}
+      else if(!short&&uL+it.h<=cap){L.push(it.html); uL+=it.h; taken.push(it);}});
+    return {L:L,R:Rr,uL:uL,uR:uR,taken:taken};
+  }
+  newPage();
+  VI.forEach(function(V){
+    var pend=V.items.slice().sort(function(a,b){return (b.pair?1:0)-(a.pair?1:0)||b.h-a.h;});
+    while(pend.length){
+      var cur=pages[pages.length-1], fresh=!cur.bands.length, at=bandAttempt(pend,R-vhH-BG);
+      if(!at.taken.length){
+        if(!fresh){newPage(); continue;}
+        var it=pend[0]; at={L:it.pair?[it.html[0]]:[it.html],R:it.pair?[it.html[1]]:[],uL:it.pair?it.ha:it.h,uR:it.pair?it.hb:0,taken:[it]};
+      }
+      cur.bands.push({v:V.v,L:at.L,R:at.R}); R-=vhH+BG+Math.max(at.uL,at.uR);
+      pend=pend.filter(function(i){return at.taken.indexOf(i)<0;});
+      if(pend.length)newPage();
+    }
   });
-  var head=fhd?fhd.outerHTML:''; document.body.removeChild(z);
-  return pages.filter(function(p){return p.length;}).map(function(p,i){return (i===0?head:'')+p.join('');});
+  var out=pages.filter(function(p){return p.bands.length;}).map(function(p,i){
+    return (i===0?D.head:'')+p.bands.map(function(b){return '<div class="band"><div class="vh">'+esc(b.v)+'</div><div class="pcols"><div class="pcol">'+b.L.join('')+'</div><div class="pcol">'+b.R.join('')+'</div></div></div>';}).join('');});
+  out.push(ficheHTML());
+  return out;
 }
 function feuillePanel(){
   var pg=feuillePages(), n=pg.length;
@@ -1850,10 +1930,9 @@ function feuilleScale(){
 }
 window.addEventListener('resize',feuilleScale);
 function feuillePrint(){
-  var z=document.getElementById('pz'); if(!z){z=document.createElement('div'); z.id='pz'; document.body.appendChild(z);}
-  z.innerHTML=feuilleHTML(); z.style.cssText='display:block;position:absolute;left:-9999px;top:0;width:186mm;font-size:12px';
-  [].slice.call(z.querySelectorAll('.fv')).forEach(function(v){ if(v.offsetHeight<=930)v.classList.add('keep'); });
-  z.style.cssText=''; setTimeout(function(){try{window.print();}catch(e){toast('Impression impossible ici.');}},150);
+  var pg=feuillePages(), z=document.getElementById('pz'); if(!z){z=document.createElement('div'); z.id='pz'; document.body.appendChild(z);}
+  z.className='pgp'; z.innerHTML=pg.map(function(h,i){return '<div class="ppg'+(i<pg.length-1?' brk':'')+'">'+h+'</div>';}).join('');
+  setTimeout(function(){try{window.print();}catch(e){toast('Impression impossible ici.');}},150);
 }
 window.addEventListener('afterprint',function(){var z=document.getElementById('pz'); if(z)z.innerHTML='';});
 
@@ -2043,7 +2122,7 @@ function acctResetDo(){
 }
 
 /* ---------- export tableur : aperçu + partager ---------- */
-function exportRows(){
+function exportRows(norecap){
   var rows=[['Village','Rue','Numéro','Nom','Montant','Paiement','Statut','Date']], cfgR=state.config.rues, byV={};
   VILLAGES.forEach(function(v){byV[v]=[];});
   allStreets().forEach(function(s){ if(cfgR&&cfgR.indexOf(s.id)<0)return; var nums=streetNums(s.id); if(!nums.length)return; var v=villageOf(s.id); (byV[v]=byV[v]||[]).push({s:s,nums:nums}); });
@@ -2051,7 +2130,7 @@ function exportRows(){
     x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', ven=st==='vendu';
       var lab=ven?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre';
       rows.push([v,x.s.nom,n,r&&r.nom||'',ven&&r.montant!=null&&r.montant!==''?String(r.montant).replace('.',','):'',ven?(PAY[r.paiement]||''):'',lab,ven?new Date(r.ts||Date.now()).toLocaleDateString('fr-FR'):'']);});});});
-  try{recapRows(rows);}catch(e){}
+  if(!norecap){try{recapRows(rows);}catch(e){}}
   return rows;
 }
 function exportCsvText(rows){return '\ufeff'+rows.map(function(r){return r.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');}
@@ -2059,11 +2138,62 @@ function exportPanel(){
   openPanel(panelHead('Exporter les ventes','Tableur (CSV) avec toutes les maisons')+'<button type="button" class="primary" data-a="exportprev">Aperçu</button><button type="button" class="btn" data-a="exportshare" style="width:100%;margin-top:12px;min-height:56px">Partager</button><p class="note" style="margin-top:12px">Le tableur liste toutes les rues et tous les numéros : « Libre » tant que rien n\'est noté, rempli pour les maisons déjà faites.</p>');
 }
 function exportPreview(){feuillePanel();}
+/* ----- vrai fichier Excel (.xlsx) fait à la main, sans bibliothèque ----- */
+var CRCT=null;
+function crc32(u){if(!CRCT){CRCT=[]; for(var n=0;n<256;n++){var k=n; for(var j=0;j<8;j++)k=k&1?0xEDB88320^(k>>>1):k>>>1; CRCT[n]=k>>>0;}} var c=0xFFFFFFFF; for(var i=0;i<u.length;i++)c=CRCT[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+  var enc=new TextEncoder(), parts=[], cen=[], off=0;
+  function u16(v){return [v&255,(v>>8)&255];} function u32(v){return [v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255];}
+  files.forEach(function(f){var nm=enc.encode(f.n), d=enc.encode(f.d), crc=crc32(d);
+    var lh=[].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(d.length),u32(d.length),u16(nm.length),u16(0));
+    parts.push(new Uint8Array(lh),nm,d);
+    cen.push([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(d.length),u32(d.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off)),nm);
+    off+=lh.length+nm.length+d.length;});
+  var cs=off, cparts=[]; cen.forEach(function(c){cparts.push(c instanceof Uint8Array?c:new Uint8Array(c)); off+=c.length;});
+  var end=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(off-cs),u32(cs),u16(0)));
+  return new Blob(parts.concat(cparts,[end]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function xcol(i){var s=''; i++; while(i>0){var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26);} return s;}
+function xesc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');}
+function xcell(r,c,v,s){var ref=xcol(c)+(r+1), st=s?' s="'+s+'"':''; if(v===''||v==null)return s?'<c r="'+ref+'"'+st+'/>':''; if(typeof v==='number')return '<c r="'+ref+'"'+st+'><v>'+v+'</v></c>'; return '<c r="'+ref+'"'+st+' t="inlineStr"><is><t xml:space="preserve">'+xesc(v)+'</t></is></c>';}
+function xsheet(rows,widths,opt){
+  var x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">'+(opt&&opt.freeze?'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>':'')+'</sheetView></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols>'+widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols><sheetData>';
+  rows.forEach(function(r,i){x+='<row r="'+(i+1)+'">'+r.map(function(c,j){return c&&typeof c==='object'?xcell(i,j,c.v,c.s):xcell(i,j,c,0);}).join('')+'</row>';});
+  x+='</sheetData>'+(opt&&opt.filter?'<autoFilter ref="A1:'+xcol(widths.length-1)+rows.length+'"/>':'')+'</worksheet>'; return x;
+}
+function buildXlsx(){
+  var R=exportRows(true), body=R.map(function(r,i){
+    if(i===0)return r.map(function(v){return {v:v,s:1};});
+    var st=r[6], sx=st==='Vendu'?2:st==='Boîte aux lettres'?3:st==='Refus'?4:0, m=r[4]===''?'':parseFloat(String(r[4]).replace(',','.'));
+    return [r[0],r[1],r[2],r[3],m===''?'':{v:m,s:6},r[5],{v:r[6],s:sx},r[7]];});
+  var F=ficheData(), fr=[], m2=function(c){return c?{v:c/100,s:6}:'';};
+  fr.push([{v:'CALENDRIERS '+F.an,s:5}]); fr.push([]); fr.push([{v:'Commune',s:1}]); F.communes.forEach(function(v){fr.push([v]);});
+  fr.push([]); fr.push([{v:'Chèques',s:5}]); fr.push([{v:'Montant',s:1},{v:'Nombre',s:1},{v:'Somme',s:1}]);
+  F.chq.forEach(function(x){fr.push([{v:x.m/100,s:6},x.n,m2(x.m*x.n)]);}); fr.push([{v:'Total chèques',s:5},F.nc||'',m2(F.tc)]);
+  fr.push([]); fr.push([{v:'Billets',s:5}]); fr.push([{v:'Montant',s:1},{v:'Nombre',s:1},{v:'Somme',s:1}]);
+  F.bil.forEach(function(x){fr.push([{v:x.d,s:6},x.n||'',m2(x.n*cts(x.d))]);}); fr.push([{v:'Total billets',s:5},'',m2(F.tb)]);
+  fr.push([]); fr.push([{v:'Pièces',s:5}]); fr.push([{v:'Montant',s:1},{v:'Nombre',s:1},{v:'Somme',s:1}]);
+  F.pie.forEach(function(x){fr.push([{v:x.d,s:6},x.n||'',m2(x.n*cts(x.d))]);}); fr.push([{v:'Total pièces',s:5},'',m2(F.tp)]);
+  fr.push([]); fr.push([{v:'TOTAL GÉNÉRAL',s:5},'',m2(F.total)]); fr.push([{v:'Nombre de calendriers distribués',s:5},'',F.distrib]); fr.push([{v:'Nombre de calendriers payés',s:5},'',F.payes]);
+  fr.push([]); fr.push([{v:'COMMUNE',s:1},{v:'NOMBRES',s:1}]); F.coms.forEach(function(x){fr.push([x.v,x.n]);});
+  var extra=[]; try{recapRows(extra);}catch(e){} if(extra.length){fr.push([]); extra.forEach(function(r){fr.push(r.map(function(v,i){return i===0&&r.length===1?{v:v,s:5}:v;}));});}
+  var S='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00&quot; €&quot;"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDFF3E4"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD6E6FB"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF9D6D3"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>';
+  var W='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Ventes" sheetId="1" r:id="rId1"/><sheet name="Fiche de caisse" sheetId="2" r:id="rId2"/></sheets></workbook>';
+  return zipStore([
+   {n:'[Content_Types].xml',d:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+   {n:'_rels/.rels',d:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {n:'xl/workbook.xml',d:W},
+   {n:'xl/_rels/workbook.xml.rels',d:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+   {n:'xl/styles.xml',d:S},
+   {n:'xl/worksheets/sheet1.xml',d:xsheet(body,[24,34,9,24,12,12,18,12],{freeze:1,filter:1})},
+   {n:'xl/worksheets/sheet2.xml',d:xsheet(fr,[38,12,14],{})}]);
+}
 function exportShare(){
-  var csv=exportCsvText(exportRows()), name='calendriers-ventes.csv';
-  try{var f=new File([csv],name,{type:'text/csv'});
+  var name='calendriers-ventes.xlsx', blob;
+  try{blob=buildXlsx();}catch(e){toast('Création du fichier impossible'); return;}
+  try{var f=new File([blob],name,{type:blob.type});
     if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:'Ventes des calendriers'}).catch(function(){}); return;}}catch(e){}
-  saveFile(name,csv,'text/csv'); toast('Fichier enregistré');
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},1500); toast('Fichier enregistré');
 }
 
 
