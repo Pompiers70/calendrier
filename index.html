@@ -285,6 +285,27 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.fprev{margin-top:14px;background:#fff;color:#111;border-radius:12px;padding:12px;font-size:12px}
+.fh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px}
+.fh b{font-size:19px;display:block}.fh span{font-size:12px;color:#444}.ft{font-weight:700;font-size:13px;text-align:right}
+.fv h2{font-size:17px;margin:14px 0 6px;padding:4px 8px;background:#111;color:#fff;border-radius:4px;break-after:avoid}
+.fr{border:1px solid #bbb;border-radius:6px;margin:0 0 10px;overflow:hidden}
+.fr h3{font-size:14px;margin:0;padding:4px 8px;background:#f0f0f0;border-bottom:1px solid #bbb}
+.fr table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.fr th:nth-child(1),.fr td:nth-child(1){width:13%}.fr th:nth-child(2),.fr td:nth-child(2){width:31%}.fr th:nth-child(3),.fr td:nth-child(3){width:15%}.fr th:nth-child(4),.fr td:nth-child(4){width:16%}.fr th:nth-child(5),.fr td:nth-child(5){width:25%}
+.fr td{word-break:break-word}.fr td,.fr th{text-align:left!important}.fr td.m,.fr th.m{text-align:right!important;padding-right:10px}.fr th:nth-child(4),.fr td:nth-child(4){padding-left:4px}
+.fr th{text-align:left;font-size:10.5px;color:#444;padding:3px 6px;border-bottom:1px solid #999}
+.fr td{padding:3px 6px;border-bottom:1px solid #eee;vertical-align:top}.fr tr:last-child td{border-bottom:0}
+.fr tr{break-inside:avoid}.fr .n{font-weight:700}.fr .m{text-align:right}
+.fr .s{font-weight:600;text-align:left}.s-vendu{background:#dff3e4}.s-repasse{background:#fdecc8}.s-refus{background:#f9d6d3}.s-boite{background:#d6e6fb}.s-libre{color:#777}
+.fv.keep{break-inside:avoid}.fr{break-inside:avoid}
+#pz{display:none}
+#pz .fcols{column-count:2;column-gap:10px}#pz .fr{font-size:10.5px}#pz .fr table,#pz .fr th,#pz .fr td{font-size:10.5px}#pz .fr h3{font-size:12.5px}
+@media print{@page{size:A4;margin:12mm}
+ body>*:not(#pz){display:none!important}
+ #pz{display:block!important;background:#fff;color:#111;font-family:Arial,sans-serif}
+ html,body{background:#fff!important}
+ .fv h2,.fr h3,.s-vendu,.s-repasse,.s-refus,.s-boite{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 #mapsvg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .copy{color:var(--muted);font-size:12px;line-height:1.5;text-align:center;margin:22px 8px 8px}
 .sync{display:flex;align-items:center}
@@ -331,12 +352,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.21</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.22</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.21</p>
+  <p class="sub">Calendriers des pompiers · v5.22</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -814,7 +835,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.21';
+var DBG=[], VERSION='5.22';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1740,6 +1761,37 @@ function rueDel(btn){
   ruesAdminPanel(); requestRender(); toast('Rue supprimée');
 }
 
+/* ---------- feuille A4 à imprimer ---------- */
+function feuilleHTML(){
+  var t=tourOf(T.cur), cfgR=state.config.rues, tot=0, nb=0;
+  var byV={}; VILLAGES.forEach(function(v){byV[v]=[];});
+  allStreets().forEach(function(s){ if(cfgR&&cfgR.indexOf(s.id)<0)return; var nums=streetNums(s.id); if(!nums.length)return; var v=villageOf(s.id); (byV[v]=byV[v]||[]).push({s:s,nums:nums}); });
+  Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut==='vendu'){nb++; tot+=Number(r.montant)||0;}});
+  var d=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  var h='<div class="fh"><div><b>'+esc(t?t.nom:'Tournée')+'</b><span>Calendriers des pompiers · '+esc(d)+'</span></div><div class="ft">'+pl(nb,'calendrier vendu','calendriers vendus')+' · '+esc(eur(tot))+'</div></div>';
+  Object.keys(byV).forEach(function(v){ var L=byV[v]; if(!L||!L.length)return; L.sort(function(a,b){return a.s.nom.localeCompare(b.s.nom,'fr');});
+    h+='<section class="fv"><h2>'+esc(v)+'</h2><div class="fcols">';
+    L.forEach(function(x){
+      h+='<div class="fr"><h3>'+esc(x.s.nom)+'</h3><table><thead><tr><th class="n">N°</th><th>Nom</th><th class="m">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
+      x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='repasse'?('Repasse'+(typeof repN==='function'&&repN(r)?' ('+repN(r)+')':'')):st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':'Libre';
+        h+='<tr><td class="n">'+esc(n)+'</td><td>'+esc(r&&r.nom||'')+'</td><td class="m">'+(st==='vendu'&&r.montant!=null&&r.montant!==''?esc(eur(r.montant)):'')+'</td><td>'+esc(st==='vendu'?(PAY[r.paiement]||''):'')+'</td><td class="s s-'+st+'">'+lab+'</td></tr>';});
+      h+='</tbody></table></div>';});
+    h+='</div></section>';});
+  return h;
+}
+function feuillePanel(){
+  openPanel(panelHead('Feuille A4','Un cadre par rue, village par village')
+   +'<p class="hint">Aperçu ci-dessous. Touche « Imprimer » puis choisis ton imprimante, ou « Enregistrer en PDF ».</p>'
+   +'<button type="button" class="primary" data-a="feuilleprint">Imprimer</button><div class="fprev">'+feuilleHTML()+'</div>');
+}
+function feuillePrint(){
+  var z=document.getElementById('pz'); if(!z){z=document.createElement('div'); z.id='pz'; document.body.appendChild(z);}
+  z.innerHTML=feuilleHTML(); z.style.cssText='display:block;position:absolute;left:-9999px;top:0;width:186mm;font-size:12px';
+  [].slice.call(z.querySelectorAll('.fv')).forEach(function(v){ if(v.offsetHeight<=930)v.classList.add('keep'); });
+  z.style.cssText=''; setTimeout(function(){try{window.print();}catch(e){toast('Impression impossible ici.');}},150);
+}
+window.addEventListener('afterprint',function(){var z=document.getElementById('pz'); if(z)z.innerHTML='';});
+
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
 /* ---------- rendu ---------- */
@@ -1821,7 +1873,7 @@ function totauxHTML(){
     +VILLAGES.map(function(v){var x=t[v]; return '<tr><td>'+v+'</td><td>'+eur(x.especes)+'</td><td>'+eur(x.cheque)+'</td><td><b>'+eur(byV[v])+'</b></td></tr>';}).join('')
     +'</tbody><tfoot><tr><td>Total</td><td>'+eur(byPay.especes)+'</td><td>'+eur(byPay.cheque)+'</td><td>'+eur(grand)+'</td></tr></tfoot></table></div>';
   if(byPay.nd>0)html+='<p class="note">Une partie des ventes n\'a pas de moyen de paiement coché ('+eur(byPay.nd)+'). Elle compte dans le total mais pas dans les colonnes.</p>';
-  html+='<h2>Sauvegarde</h2><button type="button" class="btn exp" data-a="export">Exporter les ventes (tableur)</button><button type="button" class="btn exp" data-a="backup" style="margin-top:10px">Sauvegarder toutes mes données</button><label class="btn exp" for="restore" style="margin-top:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">Restaurer une sauvegarde</label><input type="file" id="restore" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"><p class="note">Tes ventes sont enregistrées sur ce téléphone seulement. Fais une sauvegarde de temps en temps et garde le fichier en lieu sûr.</p>';
+  html+='<h2>Imprimer</h2><button type="button" class="btn exp" data-a="feuille">Feuille A4 de la tournée</button><h2>Sauvegarde</h2><button type="button" class="btn exp" data-a="export">Exporter les ventes (tableur)</button><button type="button" class="btn exp" data-a="backup" style="margin-top:10px">Sauvegarder toutes mes données</button><label class="btn exp" for="restore" style="margin-top:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">Restaurer une sauvegarde</label><input type="file" id="restore" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"><p class="note">Tes ventes sont enregistrées sur ce téléphone seulement. Fais une sauvegarde de temps en temps et garde le fichier en lieu sûr.</p>';
   return html;
 }
 
@@ -1973,6 +2025,8 @@ document.addEventListener('click',function(e){
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
   else if(a==='maisonadd')maisonAdd();
+  else if(a==='feuille')feuillePanel();
+  else if(a==='feuilleprint')feuillePrint();
   else if(a==='ruedel')rueDel(t);
   else if(a==='memall'){MEMALL[t.dataset.cid]=true; casLoad(t.dataset.cid);}
   else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
