@@ -285,6 +285,7 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+#mapsvg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .copy{color:var(--muted);font-size:12px;line-height:1.5;text-align:center;margin:22px 8px 8px}
 .sync{display:flex;align-items:center}
 .sdot{flex:0 0 10px;width:10px;height:10px;border-radius:50%;margin-right:9px}
@@ -330,12 +331,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.19</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.20</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.19</p>
+  <p class="sub">Calendriers des pompiers · v5.20</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -474,7 +475,7 @@ function mapBlock(){
   var drawn=0,total=0; visibleStreets().forEach(function(s){streetNums(s.id).forEach(function(n){total++; if(DATA[s.id]&&DATA[s.id][n])drawn++;});});
   return chips+box
    +'<div class="legend" style="margin:10px 0 0"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
-   +'<p class="hint">Touche une maison pour voir son numéro, y aller avec Waze et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'
+   +'<p class="hint">Touche une maison pour voir son numéro, y aller avec Waze et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'+(canCreate()&&GEO?'<p class="hint">Administrateur : appuie longtemps sur la carte pour ajouter une maison d\'un autre village à ta tournée.</p>':'')
    +'<p class="note" style="margin:0 0 10px">'+(GEO?'Fond de carte : © OpenStreetMap (nécessite une connexion).':'Fond de carte : contributeurs OpenStreetMap, images fixes (elles deviennent floues en zoomant très près).')+'</p>'
    +'<div class="lks" style="margin:0 0 6px"><a class="lk" href="https://www.openstreetmap.org/#map=16/'+LAT0.toFixed(4)+'/'+LON0.toFixed(4)+'" target="_blank" rel="noopener">Ouvrir le fond de carte OpenStreetMap</a></div>'
    +(total>drawn?'<p class="note">'+(total-drawn)+' numéros ajoutés à la main n\'ont pas de position sur le plan.</p>':'');
@@ -818,7 +819,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.19';
+var DBG=[], VERSION='5.20';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1669,6 +1670,60 @@ function banner(txt){
   banTimer=setTimeout(function(){b.classList.remove('show');},5500);
 }
 
+/* ---------- ajouter une maison depuis la carte (appui long) ---------- */
+var LP={t:null,x:0,y:0,id:null}, MAIS=[];
+function lpCancel(){if(LP.t){clearTimeout(LP.t); LP.t=null;}}
+document.addEventListener('pointerdown',function(e){
+  lpCancel(); var s=e.target.closest&&e.target.closest('#mapsvg'); if(!s||!mp.vb||Object.keys(mp.ptrs).length>1)return;
+  if(!GEO||!canCreate())return;
+  LP.x=e.clientX; LP.y=e.clientY; LP.id=e.pointerId;
+  LP.t=setTimeout(function(){LP.t=null; if(mp.moved||mp.pinched)return; mp.moved=true; try{navigator.vibrate&&navigator.vibrate(25);}catch(x){} maisonAt(LP.x,LP.y);},550);
+},true);
+document.addEventListener('pointermove',function(e){if(LP.t&&Math.hypot(e.clientX-LP.x,e.clientY-LP.y)>8)lpCancel();},true);
+document.addEventListener('pointerup',lpCancel,true); document.addEventListener('pointercancel',lpCancel,true);
+document.addEventListener('contextmenu',function(e){if(e.target.closest&&e.target.closest('#mapsvg'))e.preventDefault();});
+function distM(la1,lo1,la2,lo2){var dy=(la2-la1)*111320, dx=(lo2-lo1)*111320*Math.cos(la1*Math.PI/180); return Math.hypot(dx,dy);}
+function inTour(v,num,cc){var n=norm(v); return GEO&&(GEO.streets||[]).some(function(s){var d=GEO.pts[s.id]; return d&&d[num]&&norm(s.nom)===n&&(!s.cc||s.cc===cc);});}
+function maisonAt(cx,cy){
+  var svg=$('#mapsvg'); if(!svg||!GEO)return;
+  var r=svg.getBoundingClientRect(), k=mp.vb[2]/r.width, x=mp.vb[0]+(cx-r.left)*k, y=mp.vb[1]+(cy-r.top)*k;
+  var lon=LON0+x/(111320*KX), lat=LAT0-y/111320;
+  openPanel(panelHead('Ajouter une maison','Recherche des adresses autour de ton doigt…')+'<p class="hint">Un instant…</p>');
+  loadDB().then(function(db){
+    var out=[];
+    db.forEach(function(c){ if(Math.abs(c.p[0]-lat)>0.12||Math.abs(c.p[1]-lon)>0.18)return;
+      c.s.forEach(function(s){ s[2].forEach(function(p){ var d=distM(lat,lon,p[1],p[2]); if(d<=90)out.push({c:c,v:String(s[0]).trim(),n:String(p[0]),la:p[1],lo:p[2],d:d});}); });});
+    out.sort(function(a,b){return a.d-b.d;}); MAIS=out.slice(0,8);
+    maisonPanel();
+  }).catch(function(){openPanel(panelHead('Ajouter une maison','')+'<p class="hint">Impossible de charger la base d\'adresses. Réessaie avec du réseau.</p>');});
+}
+function maisonPanel(){
+  if(!MAIS.length){openPanel(panelHead('Ajouter une maison','')+'<p class="hint">Aucune adresse trouvée à cet endroit (moins de 90 m). Essaie d\'appuyer plus près de la maison.</p><button type="button" class="primary" data-a="close">OK</button>'); return;}
+  var first=true, rows=MAIS.map(function(m,i){
+    var dej=inTour(m.v,m.n,m.c.c), ck=(!dej&&first)?' checked':''; if(!dej)first=false;
+    return '<label class="pk"><input type="checkbox" name="mz" value="'+i+'"'+ck+(dej?' disabled':'')+'><span class="rn">'+esc(m.n)+', '+esc(m.v)+'<small>'+esc(m.c.n)+' · à '+Math.round(m.d)+' m'+(dej?' · déjà dans la tournée':'')+'</small></span></label>';}).join('');
+  openPanel(panelHead('Ajouter une maison','Coche une ou plusieurs adresses')+rows+'<button type="button" class="primary" data-a="maisonadd" style="margin-top:12px">Ajouter</button><p class="note" style="margin-top:10px">La maison reste dans sa vraie rue, mais elle est comptée dans ta tournée et apparaît sur la carte.</p>');
+}
+function maisonAdd(){
+  var picks=[].slice.call(document.querySelectorAll('#sheet input[name=mz]:checked')).map(function(i){return MAIS[+i.value];}).filter(Boolean);
+  if(!picks.length){toast('Coche au moins une adresse.'); return;}
+  GEO.streets=GEO.streets||[]; GEO.pts=GEO.pts||{}; GEO.communes=GEO.communes||[]; GEO.villages=GEO.villages||[];
+  var added=0;
+  picks.forEach(function(m){
+    var cc=m.c.c, vil=m.c.n, id=null;
+    GEO.streets.forEach(function(s){if(!id&&norm(s.nom)===norm(m.v)&&norm(s.v||'')===norm(vil))id=s.id;});
+    if(!id){var base=(slug(m.v)||'rue')+'-'+cc, k=1; id=base; var ex={}; GEO.streets.forEach(function(s){ex[s.id]=1;}); while(ex[id])id=base+'-'+(++k);
+      GEO.streets.push({id:id,nom:m.v,g:ROAD_RE.test(m.v)?'r':'l',v:vil,cc:cc}); GEO.streets.sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');}); GEO.pts[id]={};}
+    if(!GEO.pts[id][m.n]){GEO.pts[id][m.n]=[Math.round(m.la*1e6)/1e6,Math.round(m.lo*1e6)/1e6]; added++;}
+    if(!GEO.communes.some(function(c){return c.code===cc;}))GEO.communes.push({nom:vil,code:cc,cp:m.c.cp||''});
+    if(GEO.villages.indexOf(vil)<0)GEO.villages.push(vil);
+  });
+  var vb=mp.vb&&mp.vb.slice(); state.config.geo=GEO; applyGeo(state.config); mp.vb=vb; mp.tk='';
+  saveLocal(); var code=T.cur; cloudDo(function(){return docRef(code).set({geo:JSON.stringify(GEO)},{merge:true});});
+  closeSheet(); requestRender(); setTimeout(function(){mapDraw();},50);
+  toast(added?(added===1?'Maison ajoutée à la tournée':added+' maisons ajoutées'):'Déjà dans la tournée');
+}
+
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
 /* ---------- rendu ---------- */
@@ -1901,6 +1956,7 @@ document.addEventListener('click',function(e){
   else if(a==='casstopadm'){if(armed(t,1500))casStopAdmin(t.dataset.cid);}
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
+  else if(a==='maisonadd')maisonAdd();
   else if(a==='memall'){MEMALL[t.dataset.cid]=true; casLoad(t.dataset.cid);}
   else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
   else if(a==='casrefok'){if(armed(t,1500))casRefaire(t.dataset.cid,t.dataset.ts,t);}
