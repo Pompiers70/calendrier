@@ -350,15 +350,18 @@ input[type=text]{width:100%}
 .dng2 .mr.r{color:var(--accent)}
 .dng2 .mr small{font-size:12px}
 .pill2{display:inline-block; font-size:11px; font-weight:800; color:var(--accent); border:1.5px solid var(--accent); border-radius:20px; padding:0 8px; margin-left:8px; vertical-align:1px}
+.pv{width:auto!important; min-width:100%; border-collapse:collapse}
+.pv th,.pv td{padding:8px 10px!important; text-align:left!important; white-space:nowrap; font-size:13px!important; border-bottom:1px solid var(--line,#ccc)}
+.pv th{font-weight:700; background:rgba(128,128,128,.12)}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.28</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.29</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.28</p>
+  <p class="sub">Calendriers des pompiers · v5.29</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -529,6 +532,7 @@ window.addEventListener('resize',function(){if(state.view==='carte')mapDraw();})
 var LS='cal2:';
 function lsGet(k,d){try{var v=localStorage.getItem(LS+k); return v?JSON.parse(v):d;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v));}catch(e){}}
+var ACCT=lsGet('acct',null);
 var T={list:lsGet('list',[]),cur:lsGet('cur',null),me:lsGet('me',''),left:lsGet('left',[]),admin:lsGet('admin',false)};
 var cache={},subs={},fs=null,scanSt={stream:null,timer:0,on:false},scriptP={};
 var SYNC_TXT={loading:'Connexion à la tournée…',local:'Synchronisation non activée : ventes enregistrées sur ce téléphone seulement',ok:'Synchronisé avec la tournée',slow:'Connexion lente : les données ne sont peut-être pas à jour',err:'Envoi impossible pour l\'instant, réessaie',perm:'Firebase refuse l\'accès : vérifie que les règles sont bien publiées',offline:'Hors connexion : tes ventes partiront dès que le réseau revient'};
@@ -666,7 +670,7 @@ function toggleRue(id,on){
 function openPanel(html){$('#sheet').innerHTML='<div class="panel" role="dialog" aria-modal="true">'+html+'</div>'; $('#sheet').hidden=false; document.body.classList.add('lock'); S=null;}
 function panelHead(t,s){return '<div class="ph"><div class="tt">'+esc(t)+(s?'<small>'+esc(s)+'</small>':'')+'</div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div>';}
 function meField(){return T.me?'':'<label class="fld" for="f-me">Ton prénom (facultatif)</label><input type="text" id="f-me" autocomplete="off" placeholder="Pour voir qui a vendu">';}
-function takeMe(){var e=$('#f-me'); if(e&&e.value.trim()){T.me=e.value.trim().slice(0,30); lsSet('me',T.me);}}
+function takeMe(){var e=$('#f-me'); if(e&&e.value.trim()){T.me=e.value.trim().slice(0,60); lsSet('me',T.me);}}
 function mi(a,label,extra){return '<button type="button" class="mi" data-a="'+a+'"'+(extra||'')+'>'+label+'</button>';}
 function ms(a,label){return '<button type="button" class="mi sm" data-a="'+a+'">'+label+'</button>';}
 function mh(t){return '<p class="mh">'+t+'</p>';}
@@ -701,8 +705,8 @@ function mainMenuPanel(){
   h+=mh('Mes tournées')+'<div class="mcard">'+rows+'</div>';
   h+=mh('Ma caserne')+'<div class="mcard">'+casMenuRows()+'</div>';
   var nb=unread();
-  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
-  if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+mrow('licences','Licences','Codes pour créer une caserne')+'</div>';
+  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon compte',esc(T.me||'à créer')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
+  if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+mrow('licences','Licences','Codes pour créer une caserne')+mrow('acctreset','Réinitialiser un compte','Mot de passe oublié')+'</div>';
   h+='<p class="copy">Calendriers des pompiers · par Noah Fournier · © 2026<br>Tous droits réservés. Reproduction ou réutilisation interdite sans autorisation.</p>';
   openPanel(h);
 }
@@ -765,7 +769,7 @@ function adminTry(code){
   if(!(window.crypto&&crypto.subtle)){toast('Code administrateur indisponible ici'); return;}
   unwrapPriv(GLOBAL_WRAP,v).then(function(pk8){lsSet('gk',b64(pk8)); T.admin=true; lsSet('admin',true); adminLogin(v);}).catch(function(){toast('Code administrateur incorrect');});
 }
-function mePanel(){openPanel(panelHead('Mon prénom','Il s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">Prénom</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'">'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
+function mePanel(){openPanel(panelHead('Mon compte','Ton nom s\'affiche à côté de tes ventes.')+'<form data-f="me"><label class="fld" for="me-nom">'+(ACCT?'Nom Prénom':'Prénom')+'</label><input type="text" id="me-nom" autocomplete="off" value="'+esc(T.me)+'"'+(ACCT?' readonly':'')+'>'+(T.admin?'<p class="note" style="margin-top:14px"><b>Mode administrateur actif</b> : tu peux supprimer toutes les tournées que tu rejoins.</p>':'<label class="fld" for="me-adm">Code administrateur (facultatif)</label><input type="text" id="me-adm" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Réservé à l\'administrateur">')+'<button type="submit" class="primary">Enregistrer</button></form>'+(T.admin?'<button type="button" class="mi" data-a="admoff" style="margin-top:12px">Désactiver le mode administrateur</button>':''));}
 function welcomeHTML(){return '<p class="sum"><b>'+eur(0)+'</b> · '+pl(0,'calendrier vendu','calendriers vendus')+'</p><h2>Rues</h2><div class="nots"><p class="nt1">Veuillez rejoindre une tournée avec un code,</p><p class="nt2">ou demandez à un administrateur de votre caserne de vous en affecter une.</p></div><button type="button" class="primary" data-a="join">Rejoindre avec un code</button>'+(canCreate()?'<button type="button" class="btn" data-a="newt" style="width:100%;margin-top:12px;min-height:58px">Créer ma tournée</button>':'')+(T.cas.length?'<p class="mh">Mes casernes</p>'+T.cas.map(function(x){return '<button type="button" class="btn" data-a="cas" data-cid="'+x.cid+'" style="width:100%;margin-top:8px;min-height:58px">'+(x.cid===T.ccur?'<i class="dot on"></i>':'')+esc(x.nom)+'</button>';}).join(''):'')+'<button type="button" class="btn" data-a="addcas" style="width:100%;margin-top:12px;min-height:58px">Créer ou rejoindre une caserne</button>';}
 function toursBlock(line){var rows=T.list.map(function(t){var x=tourTotal(t.code); return {t:t,n:x.n,s:x.s};}), mx=Math.max.apply(null,rows.map(function(r){return r.s;}));
   return '<h2>Mes tournées</h2>'+rows.map(function(r){return line(esc(r.t.nom),pl(r.n,'vente','ventes'),r.s,mx);}).join('');}
@@ -798,7 +802,7 @@ function init(){
   initCloud().then(function(ok){
     if(ok){T.list.forEach(function(t){subscribe(t.code);}); setSync(navigator.onLine?'loading':'offline'); setTimeout(function(){if(state.sync==='loading')setSync('slow');},10000);}
     else setSync('local');
-    if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
+    if(ok&&!ACCT)acctShow('id'); else if(ok&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
     if(ok){checkCasExist(); T.cas.forEach(function(x){subscribeCasMem(x.cid); checkClosed(x.cid);}); startVie();}
     if(h){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} joinCode(h).then(function(){toast('Tournée rejointe');},function(m){toast(m);});}
     render();
@@ -844,7 +848,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.28';
+var DBG=[], VERSION='5.29';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1288,8 +1292,8 @@ function renameTour(t,nom){if(fs&&t&&t.cid&&t.tid)caseDoc(t.cid).collection('tou
 function onbShow(){
   var old=$('#onb'); if(old)old.remove();
   var d=document.createElement('div'); d.id='onb'; d.className='onb';
-  d.innerHTML='<div class="onbbox"><h2>Bienvenue</h2><p class="hint" style="font-size:17px">Indique ton prénom et ta caserne. Tu verras les tournées de ton centre.</p>'
-   +'<form data-f="onb1"><label class="fld" for="ob-me">Ton prénom</label><input type="text" id="ob-me" autocomplete="off" value="'+esc(T.me)+'">'
+  d.innerHTML='<div class="onbbox"><h2>Bienvenue</h2><p class="hint" style="font-size:17px">Indique ta caserne. Tu verras les tournées de ton centre.</p>'
+   +'<form data-f="onb1">'+(ACCT?'<input type="hidden" id="ob-me" value="'+esc(T.me)+'">':'<label class="fld" for="ob-me">Ton prénom</label><input type="text" id="ob-me" autocomplete="off" value="'+esc(T.me)+'">')+''
    +'<label class="fld" for="ob-cas">Ta caserne</label><input type="text" id="ob-cas" autocomplete="off" placeholder="Ex. : CPI Esprels, CI Villersexel, CIP Lure">'
    +'<p class="err" id="ob-err" role="alert"></p><button type="submit" class="primary" id="ob-go">Continuer</button></form>'
    +'<button type="button" class="mi" data-a="onbskip" style="margin-top:12px">Passer pour l\'instant</button></div>';
@@ -1297,7 +1301,7 @@ function onbShow(){
 }
 function onbErr(m){var e=$('#ob-err'); if(e)e.textContent=m;}
 function onbStep1(){
-  var me=($('#ob-me').value||'').trim().slice(0,30), nom=($('#ob-cas').value||'').trim().replace(/\s+/g,' ').slice(0,50), cid=cidOf(nom);
+  var me=($('#ob-me').value||'').trim().slice(0,60), nom=($('#ob-cas').value||'').trim().replace(/\s+/g,' ').slice(0,50), cid=cidOf(nom);
   if(!me){onbErr('Écris ton prénom.'); return;} if(cid.length<3){onbErr('Écris le nom de ta caserne (ex. : CPI Esprels).'); return;}
   if(!fs){onbErr('La synchronisation n\'est pas activée.'); return;}
   T.me=me; lsSet('me',me); onbErr(''); $('#ob-go').disabled=true;
@@ -1609,7 +1613,7 @@ function myPrincTid(){
 }
 var lastPt, launchedP=false, hashJoin=/#t=/.test(location.hash);
 function beat(off){
-  if(!fs)return; var now=off?0:Date.now(), lastT=Date.now();
+  if(!fs)return; try{acctSync();}catch(e){} var now=off?0:Date.now(), lastT=Date.now();
   if(T.cur&&tourOf(T.cur))presDoc(T.cur).set({prenom:T.me||'?',seen:now,last:lastT,own:!!tourOf(T.cur).owner,pt:myPrincTid()||null},{merge:true}).catch(function(){});
   T.cas.forEach(function(c){if(c.mid)caseDoc(c.cid).collection('membres').doc(c.mid).set({seen:now,last:lastT},{merge:true}).catch(function(){});});
 }
@@ -1885,6 +1889,152 @@ function svDo(btn){
   }).catch(function(){toast('Restauration impossible, réessaie avec du réseau.');});
 }
 
+/* ---------- compte personnel : Nom, Prénom + mot de passe ---------- */
+var AC={nom:'',pre:'',d:null};
+function acctCap(s){return String(s||'').trim().replace(/\s+/g,' ').toLowerCase().replace(/(^|[\s\-'])(\S)/g,function(m,a,b){return a+b.toUpperCase();}).slice(0,30);}
+function acctSlug(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+function acctId(n,p){return acctSlug(n)+'_'+acctSlug(p);}
+function acctRef(id){return fs.collection('comptes').doc(id);}
+function acctHash(pw,saltB){
+  var enc=new TextEncoder();
+  return crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']).then(function(k){return crypto.subtle.deriveBits({name:'PBKDF2',salt:unb64(saltB),iterations:150000,hash:'SHA-256'},k,256);}).then(b64);
+}
+function acctState(){
+  return JSON.stringify({cas:T.cas.filter(function(c){return !c.visitor;}).map(function(c){return {cid:c.cid,nom:c.nom,mid:c.mid};}),
+    tours:T.list.map(function(t){return t;}),ccur:T.ccur||null});
+}
+function acctSync(){
+  if(!fs||!ACCT)return; var s=acctState(); if(s===lsGet('acct:sync','')||s.length>150000)return;
+  acctRef(ACCT.id).update({st:s,ts:Date.now()}).then(function(){lsSet('acct:sync',s);}).catch(function(){});
+}
+function acctShow(step,msg){
+  var old=$('#acct'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='acct'; d.className='onb'; var h='';
+  if(!(window.crypto&&crypto.subtle)){h='<h2>Compte</h2><p class="hint" style="font-size:17px">Ce navigateur ne permet pas de créer un compte sécurisé. Ouvre l\'application depuis le lien https habituel.</p>';}
+  else if(step==='id'){
+    var upg=!!T.me;
+    h='<h2>'+(upg?'Complète ton compte':'Ton compte')+'</h2><p class="hint" style="font-size:17px">'+(upg?'Pour retrouver ton compte sur un autre appareil, indique ton nom et ton prénom. Tes ventes déjà faites seront mises à jour à ton nom.':'Indique ton nom et ton prénom. Ils s\'affichent à côté de tes ventes.')+'</p>'
+     +'<form data-f="acct1"><label class="fld" for="ac-nom">Nom</label><input type="text" id="ac-nom" autocomplete="family-name" value="'+esc(AC.nom)+'">'
+     +'<label class="fld" for="ac-pre">Prénom</label><input type="text" id="ac-pre" autocomplete="given-name" value="'+esc(AC.pre||T.me||'')+'">'
+     +'<p class="err" id="ac-err" role="alert">'+esc(msg||'')+'</p><button type="submit" class="primary" id="ac-go">Enregistrer</button></form>';
+  }else if(step==='new'){
+    h='<h2>Crée ton mot de passe</h2><p class="hint" style="font-size:17px">Compte : <b>'+esc(acctCap(AC.nom)+' '+acctCap(AC.pre))+'</b>. Il te servira à te reconnecter sur un autre appareil. Garde-le : en cas d\'oubli, l\'administrateur de l\'app peut réinitialiser ton compte.</p>'
+     +'<form data-f="acct2"><label class="fld" for="ac-pw">Mot de passe (6 caractères minimum)</label><input type="password" id="ac-pw" autocomplete="new-password">'
+     +'<label class="fld" for="ac-pw2">Retape le mot de passe</label><input type="password" id="ac-pw2" autocomplete="new-password">'
+     +'<p class="err" id="ac-err" role="alert">'+esc(msg||'')+'</p><button type="submit" class="primary" id="ac-go">Créer mon compte</button></form>'
+     +'<button type="button" class="mi" data-a="acctback" style="margin-top:12px">Retour</button>';
+  }else{
+    h='<h2>Connexion</h2><p class="hint" style="font-size:17px">Le compte <b>'+esc(acctCap(AC.nom)+' '+acctCap(AC.pre))+'</b> existe déjà. Entre son mot de passe.</p>'
+     +'<form data-f="acct3"><label class="fld" for="ac-pw">Mot de passe</label><input type="password" id="ac-pw" autocomplete="current-password">'
+     +'<p class="err" id="ac-err" role="alert">'+esc(msg||'')+'</p><button type="submit" class="primary" id="ac-go">Me connecter</button></form>'
+     +'<button type="button" class="mi" data-a="acctback" style="margin-top:12px">Retour</button>';
+  }
+  d.innerHTML='<div class="onbbox">'+h+'</div>'; document.body.appendChild(d);
+}
+function acctErr(m){var e=$('#ac-err'); if(e)e.textContent=m||''; var b=$('#ac-go'); if(b)b.disabled=false;}
+function acctStep1(){
+  var n=acctCap($('#ac-nom').value), p=acctCap($('#ac-pre').value);
+  if(acctSlug(n).length<2){acctErr('Écris ton nom.'); return;} if(acctSlug(p).length<2){acctErr('Écris ton prénom.'); return;}
+  AC.nom=n; AC.pre=p; $('#ac-go').disabled=true; acctErr('Vérification…'); $('#ac-go').disabled=true;
+  acctRef(acctId(n,p)).get().then(function(s){AC.d=s.exists?s.data():null; acctShow(s.exists?'login':'new');}).catch(function(e){acctErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : publie les nouvelles règles (regles-firestore.txt).':'Connexion impossible. Vérifie ton réseau.');});
+}
+function acctDone(id,disp,login){
+  var old=T.me; ACCT={id:id,nom:AC.nom,prenom:AC.pre,disp:disp}; lsSet('acct',ACCT); T.me=disp; lsSet('me',disp);
+  var o=$('#acct'); if(o)o.remove(); AC.d=null;
+  if(old&&old!==disp)acctRename(old,disp);
+  render(); beat();
+  if(!login&&!T.cas.length&&!lsGet('skipcas',false))onbShow();
+}
+function acctStep2(){
+  var pw=$('#ac-pw').value, pw2=$('#ac-pw2').value;
+  if(pw.length<6){acctErr('6 caractères minimum.'); return;} if(pw!==pw2){acctErr('Les deux mots de passe ne sont pas identiques.'); return;}
+  $('#ac-go').disabled=true; acctErr('Création…'); $('#ac-go').disabled=true;
+  var id=acctId(AC.nom,AC.pre), disp=AC.nom+' '+AC.pre, salt=b64(crypto.getRandomValues(new Uint8Array(16)));
+  acctRef(id).get().then(function(s){ if(s.exists)throw {code:'exists'}; return acctHash(pw,salt);}).then(function(h){
+    return acctRef(id).set({nom:AC.nom,prenom:AC.pre,salt:salt,h:h,tries:0,lock:0,st:acctState(),ts:Date.now()});
+  }).then(function(){lsSet('acct:sync',acctState()); acctDone(id,disp);}).catch(function(e){
+    if(e&&e.code==='exists'){AC.d=null; acctShow('id','Ce compte existe déjà : reconnecte-toi.'); return;}
+    acctErr(e&&e.code==='permission-denied'?'Accès refusé par Firebase : publie les nouvelles règles (regles-firestore.txt).':'Création impossible (réseau ?)');});
+}
+function acctStep3(){
+  var pw=$('#ac-pw').value, d=AC.d, id=acctId(AC.nom,AC.pre); if(!pw){acctErr('Entre ton mot de passe.'); return;}
+  $('#ac-go').disabled=true; acctErr('Vérification…'); $('#ac-go').disabled=true;
+  acctRef(id).get().then(function(s){
+    d=s.exists?s.data():null; if(!d)throw {code:'gone'};
+    if((d.lock||0)>Date.now())throw {code:'lock',min:Math.ceil((d.lock-Date.now())/60000)};
+    return acctHash(pw,d.salt).then(function(h){
+      if(h!==d.h){var t=(d.tries||0)+1, lock=t>=5?Date.now()+5*60000:0; return acctRef(id).update({tries:lock?0:t,lock:lock}).catch(function(){}).then(function(){throw {code:'bad',left:5-t,lock:!!lock};});}
+      return acctRef(id).update({tries:0,lock:0}).catch(function(){}).then(function(){return d;});
+    });
+  }).then(function(d){acctRestore(d); acctDone(id,AC.nom+' '+AC.pre,true);}).catch(function(e){
+    if(e&&e.code==='gone'){acctShow('id','Ce compte n\'existe plus.'); return;}
+    if(e&&e.code==='lock'){acctErr('Trop d\'essais. Réessaie dans '+e.min+' min.'); return;}
+    if(e&&e.code==='bad'){acctErr(e.lock?'Trop d\'essais : compte bloqué 5 minutes.':'Mot de passe incorrect ('+pl(e.left,'essai restant','essais restants')+').'); return;}
+    acctErr('Connexion impossible. Vérifie ton réseau.');});
+}
+function acctRestore(d){
+  var st={}; try{st=JSON.parse(d.st||'{}');}catch(e){}
+  (st.cas||[]).forEach(function(c){if(!casOf(c.cid))T.cas.push({cid:c.cid,nom:c.nom,mid:c.mid,admin:false});});
+  if(!T.ccur&&st.ccur)T.ccur=st.ccur; if(!T.ccur&&T.cas[0])T.ccur=T.cas[0].cid; saveCas();
+  var add=0; (st.tours||[]).forEach(function(t){if(t&&t.code&&!tourOf(t.code)){T.list.push(t); add++;}});
+  lsSet('list',T.list);
+  if(!T.cur&&T.list[0]){T.cur=T.list[0].code; lsSet('cur',T.cur);}
+  T.list.forEach(function(t){loadT(t.code); subscribe(t.code);}); if(T.cur)useT(T.cur);
+  T.cas.forEach(function(x){subscribeCasMem(x.cid); checkClosed(x.cid);});
+}
+/* anciennes ventes : « Emma » devient « Belli Emma » */
+function acctRename(old,disp){
+  if(!fs)return; var dup=false;
+  T.cas.forEach(function(c){var mem=(lsGet('cc:'+c.cid,null)||{}).mem||casMemList(c.cid)||[]; mem.forEach(function(m){if(m.id!==c.mid&&norm(m.prenom||'')===norm(old))dup=true;});});
+  T.cas.forEach(function(c){if(c.mid)caseDoc(c.cid).collection('membres').doc(c.mid).set({prenom:disp},{merge:true}).catch(function(){});});
+  T.list.forEach(function(t){
+    if(t.par===old){t.par=disp; cloudDo(function(){return docRef(t.code).set({creePar:disp},{merge:true});}); if(t.cid&&t.tid)caseDoc(t.cid).collection('tournees').doc(t.tid).set({parNom:disp},{merge:true}).catch(function(){});}
+    if(dup)return; var c=loadT(t.code), n=0;
+    Object.keys(c.ventes).forEach(function(k){var r=c.ventes[k]; if(r&&r.par===old){r.par=disp; n++; cloudDo(function(){return colRef(t.code).doc(r.id||k).set({par:disp},{merge:true});});}});
+    if(n){saveT(t.code);}
+  });
+  lsSet('list',T.list); requestRender();
+  if(dup)setTimeout(function(){toast('Ventes laissées telles quelles : une autre personne a le même prénom.');},300);
+}
+/* administrateur de l'app : réinitialiser un compte */
+function acctResetPanel(){
+  openPanel(panelHead('Réinitialiser un compte','Si quelqu\'un a oublié son mot de passe')+'<form data-f="acctreset"><label class="fld" for="ar-nom">Nom</label><input type="text" id="ar-nom" autocomplete="off"><label class="fld" for="ar-pre">Prénom</label><input type="text" id="ar-pre" autocomplete="off"><button type="submit" class="primary">Supprimer le compte</button></form><p class="note" style="margin-top:10px">Les ventes ne sont pas touchées. La personne se reconnecte avec son nom et son prénom, et crée un nouveau mot de passe.</p>');
+}
+function acctResetDo(){
+  var n=$('#ar-nom').value, p=$('#ar-pre').value, id=acctId(n,p); if(id.length<4||id[0]==='_'){toast('Écris le nom et le prénom.'); return;}
+  adminReady().then(function(){return acctRef(id).get();}).then(function(s){
+    if(!s.exists){toast('Aucun compte à ce nom.'); return;}
+    return acctRef(id).delete().then(function(){closeSheet(); toast('Compte supprimé : la personne peut en recréer un');});
+  }).catch(function(e){toast(adminDenied(e));});
+}
+
+/* ---------- export tableur : aperçu + partager ---------- */
+function exportRows(){
+  var rows=[['Village','Rue','Numéro','Nom','Montant','Paiement','Date']];
+  Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu';}).sort(function(a,b){return (a.ts||0)-(b.ts||0);}).forEach(function(r){
+    var s=streetById(r.rue); rows.push([villageOf(r.rue),s?s.nom:r.rueNom,r.numero,r.nom,String(r.montant==null?'':r.montant).replace('.',','),PAY[r.paiement]||'',new Date(r.ts||Date.now()).toLocaleDateString('fr-FR')]);});
+  try{recapRows(rows);}catch(e){}
+  return rows;
+}
+function exportCsvText(rows){return '\ufeff'+rows.map(function(r){return r.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');}
+function exportPanel(){
+  openPanel(panelHead('Exporter les ventes','Fichier tableur (CSV)')+'<button type="button" class="primary" data-a="exportprev">Aperçu</button><button type="button" class="btn" data-a="exportshare" style="width:100%;margin-top:12px;min-height:56px">Partager</button>');
+}
+function exportPreview(){
+  var rows=exportRows(), n=Math.max(0,rows.filter(function(r){return r.length>=7&&r[0]!=='Village'&&r[2]!=='';}).length);
+  var w=rows.reduce(function(m,r){return Math.max(m,r.length);},1);
+  var tb=rows.map(function(r,i){if(!r.length)return '<tr><td colspan="'+w+'" style="border:0;height:10px"></td></tr>'; var th=(i===0);
+    var cells=''; for(var k=0;k<w;k++)cells+='<'+(th?'th':'td')+'>'+esc(r[k]==null?'':r[k])+'</'+(th?'th':'td')+'>'; return '<tr>'+cells+'</tr>';}).join('');
+  openPanel(panelHead('Aperçu du tableur',pl(rows.filter(function(r){return r.length===7&&r[0]!=='Village'&&r[0]!==''&&/^\d/.test(String(r[2]));}).length,'vente','ventes'))
+    +'<div class="scroll" style="margin-top:6px"><table class="pv"><tbody>'+tb+'</tbody></table></div><button type="button" class="primary" data-a="exportshare" style="margin-top:14px">Partager</button>');
+}
+function exportShare(){
+  var csv=exportCsvText(exportRows()), name='calendriers-ventes.csv';
+  try{var f=new File([csv],name,{type:'text/csv'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:'Ventes des calendriers'}).catch(function(){}); return;}}catch(e){}
+  saveFile(name,csv,'text/csv'); toast('Fichier enregistré');
+}
+
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
 /* ---------- rendu ---------- */
@@ -1958,7 +2108,6 @@ function totauxHTML(){
   function line(n,sub,val,max){return '<div class="line"><span class="n">'+n+(sub?'<small>'+sub+'</small>':'')+'</span><span class="v">'+eur(val)+'</span><div class="bar"><i style="width:'+(max>0?Math.round(val/max*100):0)+'%"></i></div></div>';}
   var html='<h2 style="margin-top:14px">Totaux</h2><div class="big"><span class="lbl">Total vendu</span><strong>'+eur(grand)+'</strong><span>'+pl(nb,'calendrier vendu','calendriers vendus')+'</span></div>';
   html+='<button type="button" class="btn red" data-a="caisse" style="width:100%;margin-top:14px;min-height:58px">Fin de tournée : compter la caisse</button>';
-  if(T.list.length>1)html+=toursBlock(line);
   html+='<h2>Par village</h2>'+VILLAGES.map(function(v){return line(v,pl(t[v].n,'vente','ventes'),byV[v],grand);}).join('');
   html+='<h2>Par moyen de paiement</h2>'+cols.map(function(c){return line(PAY[c],'',byPay[c],grand);}).join('');
   if(byPay.nd>0)html+=line('Paiement non précisé','',byPay.nd,grand);
@@ -2167,13 +2316,21 @@ document.addEventListener('click',function(e){
   else if(a==='boitelock')toast('Boîte aux lettres : possible après 3 repasses espacées d\'au moins 1 h.',3500);
   else if(a==='reset'){if(armed(t)){delVente(S.id); closeSheet(); toast('Remis à vide');}}
   else if(a==='remove'){if(armed(t)){var id=S.rue,num=S.numero; hideNum(id,num); var rid2=S.id; if(state.ventes[rid2])delVente(rid2); putCfg(); closeSheet(); toast('Numéro retiré');}}
-  else if(a==='export')exportCsv();
+  else if(a==='export')exportPanel();
+  else if(a==='exportprev')exportPreview();
+  else if(a==='exportshare')exportShare();
+  else if(a==='acctback')acctShow('id');
+  else if(a==='acctreset')acctResetPanel();
   else if(a==='backup')saveFile('calendriers-sauvegarde.json',JSON.stringify({v:1,config:state.config,ventes:state.ventes}),'application/json');
 });
 document.addEventListener('submit',function(e){
   var f=e.target.closest('form[data-f]'); if(!f)return; e.preventDefault();
   if(f.dataset.f==='newt'){submitNew();}
   else if(f.dataset.f==='onb1'){onbStep1();}
+  else if(f.dataset.f==='acct1'){acctStep1();}
+  else if(f.dataset.f==='acct2'){acctStep2();}
+  else if(f.dataset.f==='acct3'){acctStep3();}
+  else if(f.dataset.f==='acctreset'){acctResetDo();}
   else if(f.dataset.f==='licnew'){licNew();}
   else if(f.dataset.f==='casmulti'){casMultiDo(f.dataset.cid);}
   else if(f.dataset.f==='onb2'){onbStep2(f.dataset.nom);}

@@ -15,6 +15,14 @@ service cloud.firestore {
     match /tournees/{code}/pres/{id} {
       allow read, write: if code.matches('[A-Z0-9]{12}');
     }
+    match /comptes/{id} {
+      allow get, create: if id.matches('[a-z0-9-]{2,70}_[a-z0-9-]{2,70}');
+      allow update: if id.matches('[a-z0-9-]{2,70}_[a-z0-9-]{2,70}')
+        && request.resource.data.h == resource.data.h
+        && request.resource.data.salt == resource.data.salt;
+      allow delete: if isAdmin();
+      allow list: if false;
+    }
     match /licences/{code} {
       allow get: if code.matches('[A-Z0-9]{12}');
       allow list, create, delete: if isAdmin();
