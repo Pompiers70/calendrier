@@ -383,12 +383,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.33</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.34</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.33</p>
+  <p class="sub">Calendriers des pompiers · v5.34</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -875,7 +875,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.33';
+var DBG=[], VERSION='5.34';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1853,6 +1853,7 @@ function frameHTML(x,nums,suite){
 /* ----- fiche de caisse (remplie automatiquement) ----- */
 function ficheData(){
   var an=new Date().getMonth()>=7?new Date().getFullYear()+1:new Date().getFullYear(), V=[], cq={}, nbv=0, nbp=0, byV={}, tot=0;
+  var nbb=0; Object.keys(state.ventes).forEach(function(k){if(state.ventes[k].statut==='boite')nbb++;});
   Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu')return; nbv++; var m=cts(r.montant||0); tot+=m;
     if(r.paiement==='cheque'||r.paiement==='especes')nbp++; if(r.paiement==='cheque')cq[m]=(cq[m]||0)+1;
     var v=villageOf(r.rue); byV[v]=(byV[v]||0)+1;});
@@ -1864,7 +1865,7 @@ function ficheData(){
   PIECES.forEach(function(d){var q=n[d]||0; tp+=q*cts(d); if(d>=0.1||q)pie.push({d:d,n:q});});
   var chq=Object.keys(cq).map(Number).sort(function(a,b){return a-b;}).map(function(k){return {m:k,n:cq[k]};}), tc=chq.reduce(function(s,x){return s+x.m*x.n;},0);
   var coms=VILLAGES.map(function(v){return {v:v,n:byV[v]||0};});
-  return {an:an,communes:VILLAGES.slice(),chq:chq,tc:tc,nc:chq.reduce(function(s,x){return s+x.n;},0),bil:bil,tb:tb,pie:pie,tp:tp,total:tot,distrib:nbv,payes:nbp,coms:coms};
+  return {an:an,communes:VILLAGES.slice(),chq:chq,tc:tc,nc:chq.reduce(function(s,x){return s+x.n;},0),bil:bil,tb:tb,pie:pie,tp:tp,total:tot,distrib:nbv+nbb,payes:nbp,coms:coms};
 }
 function ficheHTML(){
   var F=ficheData(), t=tourOf(T.cur);
