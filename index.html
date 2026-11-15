@@ -289,6 +289,15 @@ input[type=text]{width:100%}
 .sync{display:flex;align-items:center}
 .sdot{flex:0 0 10px;width:10px;height:10px;border-radius:50%;margin-right:9px}
 .stxt{margin-left:4px}
+:root{--orc:#F08A00;--redc:#D62E2E}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--orc:#FF9F1C;--redc:#FF5A4F}}
+:root[data-theme="dark"]{--orc:#FF9F1C;--redc:#FF5A4F}
+.plaque.st-repasse{background:var(--orc); color:#1a1204; border:2px solid var(--orc); box-shadow:none}
+.plaque.st-refus{background:var(--redc); color:#fff; border-color:var(--redc); box-shadow:none}
+.legend .l-repasse{background:var(--orc); border:2px solid var(--orc)}
+.legend .l-refus{background:var(--redc); border:2px solid var(--redc)}
+.mdot.repasse{fill:var(--orc); stroke:var(--orc)}
+.mdot.refus{fill:var(--redc); stroke:var(--redc)}
 .pk{display:flex;align-items:center;gap:14px;padding:14px 16px;margin:8px 0;border:1px solid var(--line,#333);border-radius:14px;cursor:pointer}
 .pk input{flex:0 0 22px;width:22px;height:22px;margin:0}
 .pk .rn{flex:1;min-width:0;font-size:20px;line-height:1.2}
@@ -321,12 +330,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.18</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.19</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.18</p>
+  <p class="sub">Calendriers des pompiers · v5.19</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -809,7 +818,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.18';
+var DBG=[], VERSION='5.19';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
