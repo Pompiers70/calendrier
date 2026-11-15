@@ -352,12 +352,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.23</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.25</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.23</p>
+  <p class="sub">Calendriers des pompiers · v5.25</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -592,6 +592,7 @@ function subscribe(code){
     if(md.fromCache&&snap.empty)return;
     var v={}; snap.docs.forEach(function(d){var x=d.data(); if(x){x.id=x.id||d.id; v[d.id]=fixRec(x);}});
     c.ventes=v; if(code===T.cur)state.ventes=v; saveT(code);
+    if(code===T.cur)svCheck();
     if(code===T.cur||state.view==='totaux')requestRender();
   },function(e){if(code===T.cur)setSync(e&&e.code==='permission-denied'?'perm':'err');});
   s.d=docRef(code).onSnapshot(function(sn){
@@ -605,10 +606,10 @@ function subscribe(code){
     }else if(!sn.metadata.fromCache&&t){cloudDo(function(){return docRef(code).set({nom:t.nom,cfg:cfgJSON(c.cfg),geo:c.cfg.geo?JSON.stringify(c.cfg.geo):null,creeLe:Date.now()});});}
   },function(){});
 }
-function putVente(r){if(T.me&&!r.par)r.par=T.me; state.ventes[r.id]=r; saveLocal(); requestRender(); var code=T.cur; cloudDo(function(){return colRef(code).doc(r.id).set(r);});}
+function putVente(r){if(T.me&&!r.par)r.par=T.me; state.ventes[r.id]=r; saveLocal(); requestRender(); var code=T.cur; cloudDo(function(){return colRef(code).doc(r.id).set(r);}); svSoon();}
 function nomKey(rue,num){return rue+'|'+num;}
 function setNom(key,val){if(!state.noms)state.noms={}; if(state.noms[key]===val)return; state.noms[key]=val; saveLocal(); var code=T.cur, o={}; o[key]=val; cloudDo(function(){return docRef(code).set({noms:o},{merge:true});});}
-function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var code=T.cur; cloudDo(function(){return colRef(code).doc(id).delete();});}
+function delVente(id){delete state.ventes[id]; saveLocal(); requestRender(); var code=T.cur; cloudDo(function(){return colRef(code).doc(id).delete();}); svSoon();}
 function putCfg(){saveLocal(); requestRender(); var code=T.cur, s=cfgJSON(state.config); cloudDo(function(){return docRef(code).set({cfg:s},{merge:true});});}
 
 /* gestion des tournées */
@@ -687,7 +688,7 @@ function menuPanel(){
   h+=mh('Mes tournées')+'<div class="mcard">'+rows+'</div>';
   h+=mh('Ma caserne')+'<div class="mcard">'+casMenuRows()+'</div>';
   var nb=unread();
-  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
+  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+(cur?mrow('sauv','Restaurer une sauvegarde','Récupérer les passages de cette tournée'):'')+'</div>';
   if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+mrow('licences','Licences','Codes pour créer une caserne')+'</div>';
   var dg='';
   if(cur&&canArchive()&&!(tourOf(T.cur)&&T.list.filter(function(x){return x.code===T.cur&&x.cid;})[0]))dg+=mrow('histo','Historique de la tournée');
@@ -835,7 +836,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.23';
+var DBG=[], VERSION='5.25';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1758,7 +1759,8 @@ function rueDel(btn){
   if(state.config.numeros)delete state.config.numeros[id]; if(state.config.hidden)delete state.config.hidden[id];
   var vb=mp.vb&&mp.vb.slice(); state.config.geo=GEO; applyGeo(state.config); mp.vb=vb; mp.sel=null; mp.tk='';
   saveLocal(); var code=T.cur; cloudDo(function(){return docRef(code).set({geo:JSON.stringify(GEO),cfg:cfgJSON(state.config)},{merge:true});});
-  ruesAdminPanel(); requestRender(); toast('Rue supprimée');
+  if(btn.dataset.from){state.street=null; state.prune=false; render(); window.scrollTo(0,0);} else ruesAdminPanel();
+  requestRender(); toast('Rue supprimée');
 }
 
 /* ---------- feuille A4 à imprimer ---------- */
@@ -1791,6 +1793,69 @@ function feuillePrint(){
   z.style.cssText=''; setTimeout(function(){try{window.print();}catch(e){toast('Impression impossible ici.');}},150);
 }
 window.addEventListener('afterprint',function(){var z=document.getElementById('pz'); if(z)z.innerHTML='';});
+
+/* ---------- sauvegardes automatiques de la tournée (3 copies tournantes) ---------- */
+var SV_TIMER=null;
+function svCol(code){return docRef(code).collection('sauv');}
+function svStats(v){var n=0,nv=0,tot=0; Object.keys(v||{}).forEach(function(k){var r=v[k]; if(!r)return; n++; if(r.statut==='vendu'){nv++; tot+=Number(r.montant)||0;}}); return {n:n,nv:nv,tot:Math.round(tot*100)/100};}
+function svSoon(){ if(!fs)return; clearTimeout(SV_TIMER); var code=T.cur; SV_TIMER=setTimeout(function(){svRun(code);},4000); }
+function svLastArchive(code){var c=loadT(code), lt=0; ((c.cfg&&c.cfg.archives)||[]).forEach(function(a){if(a.ts>lt)lt=a.ts;}); return lt;}
+var SV_CK=null;
+function svCheck(){ if(!fs)return; clearTimeout(SV_CK); var code=T.cur; SV_CK=setTimeout(function(){svRun(code,true);},6000); }
+function svRun(code,only){
+  if(!fs||!code||!navigator.onLine)return;
+  var v=(code===T.cur?state.ventes:loadT(code).ventes)||{}, st=svStats(v);
+  svCol(code).doc('meta').get().then(function(sn){
+    var pm=sn.exists?(sn.data()||{}):{i:-1,n:0,ts:0}, bad=(st.n===0&&pm.n>0)||(pm.n>=4&&st.n<pm.n*0.6);
+    if(bad&&svLastArchive(code)>(pm.ts||0))bad=false;   /* clôture de l'année : c'est normal */
+    if(bad){svAlert(code,pm,st); return;}
+    if(only||st.n===0)return;
+    var js=JSON.stringify(v); if(js.length>900000)return;
+    var next=((pm.i==null?-1:pm.i)+1)%3, ts=Date.now();
+    return svCol(code).doc('s'+next).set({ts:ts,n:st.n,nv:st.nv,tot:st.tot,par:T.me||'',ventes:js}).then(function(){
+      return svCol(code).doc('meta').set({i:next,n:st.n,ts:ts});});
+  }).catch(function(){});
+}
+function svCanRestore(code){
+  if(T.admin||canArchive())return Promise.resolve(true);
+  return principalCode().then(function(p){return p===code;}).catch(function(){return false;});
+}
+function svAlert(code,pm,st){
+  var k='sv:al:'+code, last=lsGet(k,0); if(Date.now()-last<30*60000)return; lsSet(k,Date.now());
+  var t=tourOf(code); svCanRestore(code).then(function(ok){
+    openPanel(panelHead('Sauvegarde : attention','')
+     +'<p style="font-size:17px;line-height:1.4"><b>Cette tournée semble vide ou incomplète</b> ('+pl(st.n,'passage','passages')+' au lieu de '+pl(pm.n,'passage','passages')+').</p>'
+     +'<p class="hint">Rien n\'a été effacé de tes sauvegardes : elles sont intactes. Les nouvelles sauvegardes sont suspendues tant que ça n\'est pas réglé.</p>'
+     +(ok?'<h3 style="margin:14px 0 6px">Pour tout remettre</h3><ol class="steps" style="padding-left:20px;line-height:1.6"><li>Ouvre le menu (les trois points en haut à droite).</li><li>Touche « Restaurer une sauvegarde ».</li><li>Choisis la plus récente.</li><li>Touche « Restaurer », puis confirme.</li></ol><button type="button" class="primary" data-a="sauv">Restaurer maintenant</button>'
+      :'<h3 style="margin:14px 0 6px">Que faire ?</h3><p class="hint">Seuls les administrateurs et les personnes affectées à cette tournée peuvent restaurer. <b>Préviens l\'administrateur de ta caserne</b> et donne-lui le nom de la tournée : <b>« '+esc(t?t.nom:'')+' »</b>.</p><button type="button" class="primary" data-a="close">OK</button>'));
+  });
+}
+function svPanel(){
+  var code=T.cur; if(!code||!fs){toast('Sauvegardes indisponibles hors ligne.'); return;}
+  svCanRestore(code).then(function(ok){
+    if(!ok){var t=tourOf(code); openPanel(panelHead('Restaurer une sauvegarde','')+'<p class="hint">Seuls les administrateurs et les personnes affectées à cette tournée peuvent restaurer. Préviens l\'administrateur de ta caserne et donne-lui le nom de la tournée : <b>« '+esc(t?t.nom:'')+' »</b>.</p><button type="button" class="primary" data-a="close">OK</button>'); return;}
+    openPanel(panelHead('Restaurer une sauvegarde','Les 3 dernières copies automatiques')+'<p class="hint" id="sv-st">Chargement…</p><div id="sv-list"></div>'
+      +'<p class="note">Restaurer remet les passages de la sauvegarde. Il ne supprime rien : les ventes faites depuis restent en place.</p>');
+    Promise.all([0,1,2].map(function(i){return svCol(code).doc('s'+i).get().then(function(s){var d=s.exists?s.data():null; if(d)d.slot=i; return d;}).catch(function(){return null;});})).then(function(a){
+      var L=a.filter(Boolean).sort(function(x,y){return y.ts-x.ts;}); var st=$('#sv-st'); if(!st)return;
+      st.textContent=L.length?'Choisis la sauvegarde à remettre.':'Aucune sauvegarde pour le moment. Elles se créent à chaque vente.';
+      $('#sv-list').innerHTML=L.map(function(d){var dt=new Date(d.ts);
+        return '<div class="mcard" style="padding:14px 16px;margin:10px 0"><div style="font-size:18px;font-weight:700">'+esc(dt.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' à '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))+'</div>'
+         +'<div class="note" style="margin:3px 0 10px">'+pl(d.n,'passage','passages')+' · '+pl(d.nv,'vendu','vendus')+' · '+esc(eur(d.tot))+(d.par?' · par '+esc(d.par):'')+'</div>'
+         +'<button type="button" class="primary" data-a="svdo" data-slot="'+d.slot+'">Restaurer</button></div>';}).join('');
+    });
+  });
+}
+function svDo(btn){
+  if(!armed(btn,1500))return; var code=T.cur, slot=btn.dataset.slot;
+  svCol(code).doc('s'+slot).get().then(function(s){
+    var d=s.data(), v={}; try{v=JSON.parse(d.ventes||'{}');}catch(e){}
+    var n=0; Object.keys(v).forEach(function(id){ if(state.ventes[id])return; var r=v[id]; state.ventes[id]=r; n++; cloudDo(function(){return colRef(code).doc(id).set(r);}); });
+    saveLocal(); requestRender(); lsSet('sv:al:'+code,0);
+    openPanel(panelHead('Sauvegarde restaurée','')+'<p style="font-size:17px;line-height:1.4"><b>'+(n?pl(n,'passage remis','passages remis'):'Rien à remettre : tout y était déjà')+'</b>.</p><button type="button" class="primary" data-a="close">OK</button>');
+    svSoon();
+  }).catch(function(){toast('Restauration impossible, réessaie avec du réseau.');});
+}
 
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
@@ -1842,7 +1907,7 @@ function streetHTML(){
    +'<form class="addn" data-f="addnum"><input type="text" id="newnum" placeholder="Ajouter un numéro (ex. : 8)" autocomplete="off" aria-label="Numéro à ajouter"><button class="btn red" type="submit">Ajouter</button></form>'
    +'<div class="quick" style="margin:10px 0 0"><button type="button" data-a="quickadd" data-v="1-10">1 à 10</button><button type="button" data-a="quickadd" data-v="1-20">1 à 20</button><button type="button" data-a="quickadd" data-v="1-30">1 à 30</button><button type="button" data-a="quickadd" data-v="1-50">1 à 50</button></div>'
    +'<p class="hint">Ou tape un numéro, une liste (2, 4, 6) ou une série (1-20). Appartement : 12 A ou 12 app 3.</p>'
-   +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'
+   +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'+(canCreate()&&GEO?'<button type="button" class="btn" data-a="ruedel" data-from="1" data-id="'+esc(id)+'" style="width:100%;margin:0 0 12px;color:var(--accent)">Supprimer cette rue</button>':'')
    +(state.prune?'<p class="hint" style="color:var(--accent);font-weight:600;margin-top:0">Touche un numéro pour le retirer de la liste.</p>':'')
    +'<details class="add" style="margin:0 0 14px"><summary>Coller une liste de numéros</summary><form data-f="addlist"><textarea id="paste" rows="5" placeholder="Un numéro par ligne :&#10;1&#10;2&#10;2 bis&#10;3 ter&#10;4 A" autocomplete="off" aria-label="Liste de numéros"></textarea><button class="btn red" type="submit">Ajouter la liste</button></form></details>'
    +'<div class="legend"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
@@ -2025,6 +2090,8 @@ document.addEventListener('click',function(e){
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
   else if(a==='maisonadd')maisonAdd();
+  else if(a==='sauv')svPanel();
+  else if(a==='svdo')svDo(t);
   else if(a==='feuille')feuillePanel();
   else if(a==='feuilleprint')feuillePrint();
   else if(a==='ruedel')rueDel(t);
