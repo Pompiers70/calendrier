@@ -379,15 +379,16 @@ input[type=text]{width:100%}
 .fl{text-align:right; font-style:italic; font-weight:700; font-size:11.5px; padding-right:6px}
 .fx{border:2px solid #111; min-height:22px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px}
 .pgp .fr td{padding:2px 6px!important}.pgp .fr th{padding:2px 6px!important}.pgp .fr h3{padding:3px 8px}
+.cjnav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0 4px}.cjnav b{font-size:18px; text-transform:capitalize}.cjnav button{min-width:52px; min-height:52px; border-radius:14px; border:2px solid var(--line,#444); background:transparent; color:inherit; font-size:26px}.cjnav button:disabled{opacity:.3}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.32</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.33</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.32</p>
+  <p class="sub">Calendriers des pompiers · v5.33</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -874,7 +875,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.32';
+var DBG=[], VERSION='5.33';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1028,19 +1029,24 @@ function submitNew(){
 
 /* ---------- fin de tournée : comptage de la caisse ---------- */
 var BILLETS=[500,200,100,50,20,10,5], PIECES=[2,1,0.5,0.2,0.1,0.05,0.02,0.01], CT=0;
-var CP=null;
+var CP=null, CMODE='tournee', CD='';
+function dayOf(ts){var d=new Date(ts||Date.now()); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function dayLabel(k){var t=dayOf(Date.now()), y=dayOf(Date.now()-864e5); if(k===t)return 'Aujourd\'hui'; if(k===y)return 'Hier'; var p=k.split('-'); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});}
+function dayShift(k,n){var p=k.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]+n,12); return dayOf(d.getTime());}
 function cai0(){var c=state.config.caisse; if(!c)c=state.config.caisse={n:{},ch:{}}; c.n=c.n||{}; c.ch=c.ch||{}; return c;}
 function parOf(r){return r.par||'(non précisé)';}
 function sellers(){var s={}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut==='vendu')s[parOf(r)]=1;}); return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'fr');});}
 function who(){var c=cai0(); if(c.mode!=='chacun')return null; var s=sellers(); if(s.length<2)return null; if(!CP||s.indexOf(CP)<0)CP=s.indexOf(T.me)>-1?T.me:s[0]; return CP;}
-function cai(){var c=cai0(), w=who(); if(!w)return c; c.per=c.per||{}; var p=c.per[w]; if(!p)p=c.per[w]={n:{},ch:{}}; p.n=p.n||{}; p.ch=p.ch||{}; return p;}
-function resetCaisse(){var w=who(), c=cai0(); if(w){if(c.per)delete c.per[w];} else {c.n={}; c.ch={};}}
+function cai(){var c=cai0(), w=who();
+  if(CMODE==='jour'){c.jours=c.jours||{}; var dj=c.jours[CD]=c.jours[CD]||{}, kj=w||'*', pj=dj[kj]; if(!pj)pj=dj[kj]={n:{},ch:{}}; pj.n=pj.n||{}; pj.ch=pj.ch||{}; return pj;}
+  if(!w)return c; c.per=c.per||{}; var p=c.per[w]; if(!p)p=c.per[w]={n:{},ch:{}}; p.n=p.n||{}; p.ch=p.ch||{}; return p;}
+function resetCaisse(){var w=who(), c=cai0(); if(CMODE==='jour'){if(c.jours&&c.jours[CD])delete c.jours[CD][w||'*']; return;} if(w){if(c.per)delete c.per[w];} else {c.n={}; c.ch={};}}
 function cts(x){return Math.round(x*100);}
 function dkey(d){return String(d).replace('.','_');}
 function dlabel(d,b){return (b?(d>=5?'Billet de ':'Pièce de '):'')+(d>=1?String(d):String(Math.round(d*100))+' c')+(d>=1?' €':'');}
 function cashCts(){var c=cai(),t=0; BILLETS.concat(PIECES).forEach(function(d){t+=(c.n[d]||0)*cts(d);}); return t;}
-function chequesList(){var w=who(); return Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu'&&r.paiement==='cheque'&&(!w||parOf(r)===w);}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});}
-function expectedC(){var w=who(), e={cash:0,cheque:0,nd:0}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu'||(w&&parOf(r)!==w))return; var m=cts(r.montant||0); if(r.paiement==='especes')e.cash+=m; else if(r.paiement==='cheque')e.cheque+=m; else e.nd+=m;}); return e;}
+function chequesList(){var w=who(); return Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu'&&r.paiement==='cheque'&&(!w||parOf(r)===w)&&(CMODE!=='jour'||dayOf(r.ts)===CD);}).sort(function(a,b){return (a.ts||0)-(b.ts||0);});}
+function expectedC(){var w=who(), e={cash:0,cheque:0,nd:0}; Object.keys(state.ventes).forEach(function(k){var r=state.ventes[k]; if(r.statut!=='vendu'||(w&&parOf(r)!==w)||(CMODE==='jour'&&dayOf(r.ts)!==CD))return; var m=cts(r.montant||0); if(r.paiement==='especes')e.cash+=m; else if(r.paiement==='cheque')e.cheque+=m; else e.nd+=m;}); return e;}
 function checkedCts(){var c=cai(),t=0,n=0; chequesList().forEach(function(r){if(c.ch[r.id]){t+=cts(r.montant||0); n++;}}); return {t:t,n:n};}
 function gap(d){return d===0?'Compte bon ✓':(d<0?'Il manque '+eur(-d/100):'Il y a '+eur(d/100)+' en trop');}
 function cline(label,got,exp,note){var d=got-exp, cls=d===0?'ok':(d<0?'bad':'warn'); return '<div class="cl '+cls+'"><span>'+label+'</span><b>'+eur(got/100)+' sur '+eur(exp/100)+'</b><small>'+gap(d)+(note?' · '+note:'')+'</small></div>';}
@@ -1057,7 +1063,7 @@ function drow(d){var k=dkey(d); return '<div class="dn"><span class="dv">'+dlabe
 function perOverview(){
   var c0=cai0(), save=c0.mode, rows=''; 
   sellers().forEach(function(n){
-    c0.mode='chacun'; CP=n; var ex=expectedC(), p=(c0.per||{})[n], got=0, has=false;
+    c0.mode='chacun'; CP=n; var ex=expectedC(), p=CMODE==='jour'?((c0.jours||{})[CD]||{})[n]:(c0.per||{})[n], got=0, has=false;
     if(p){got=cashCts()+checkedCts().t; has=got>0;}
     var tot=ex.cash+ex.cheque+ex.nd, d=got-tot;
     rows+='<button type="button" class="row" data-a="cwho" data-n="'+esc(n)+'"><span class="rn">'+esc(n)+'<small>Espèces '+eur(ex.cash/100)+' · Chèques '+eur(ex.cheque/100)+'</small></span><span class="rm"><b>'+eur(tot/100)+'</b>'+(has?(d===0?'Compte bon ✓':gap(d)):'À compter')+'</span></button>';
@@ -1073,16 +1079,25 @@ function modeBlock(){
   return h;
 }
 function caissePanel(){
-  var L=chequesList(), c=cai();
-  openPanel(panelHead('Fin de tournée','Touche chaque billet, chaque pièce et chaque chèque que tu as devant toi.')
-   +modeBlock()+'<div class="csum" id="csum"></div>'
+  var L=chequesList(), c=cai(), jr=CMODE==='jour';
+  if(jr&&!CD)CD=dayOf(Date.now());
+  var nav=jr?'<div class="cjnav"><button type="button" data-a="cjday" data-d="-1" aria-label="Jour précédent">‹</button><b>'+esc(dayLabel(CD))+'</b><button type="button" data-a="cjday" data-d="1" aria-label="Jour suivant"'+(CD>=dayOf(Date.now())?' disabled':'')+'>›</button></div>':'';
+  openPanel(panelHead(jr?'Fin de journée':'Fin de tournée',jr?'Compte seulement l\'argent de cette journée. Tu peux recompter et enregistrer autant de fois que tu veux : le dernier comptage du jour remplace le précédent.':'Recompte tout l\'argent de la tournée pour vérifier que ça colle avec les ventes. Tu peux le refaire et l\'enregistrer autant de fois que tu veux.')
+   +nav+modeBlock()+'<div class="csum" id="csum"></div>'
    +'<h3 class="ch3">Billets</h3>'+BILLETS.map(drow).join('')
    +'<h3 class="ch3">Pièces</h3>'+PIECES.map(drow).join('')
-   +'<h3 class="ch3">Chèques</h3>'+(L.length?L.map(function(r){var s=streetById(r.rue); return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="chq" data-id="'+esc(r.id)+'"'+(c.ch[r.id]?' checked':'')+'><span class="box">✕</span><span>'+esc(r.nom||'Sans nom')+' · '+eur(r.montant)+'<small style="display:block;color:var(--muted)">'+esc(r.numero)+' '+esc(s?s.nom:r.rueNom||'')+'</small></span></label>';}).join(''):'<p class="empty">Aucun chèque enregistré.</p>')
-   +'<button type="button" class="mi" data-a="creset" style="margin-top:14px">Tout remettre à zéro</button>');
+   +'<h3 class="ch3">Chèques</h3>'+(L.length?L.map(function(r){var s=streetById(r.rue); return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="chq" data-id="'+esc(r.id)+'"'+(c.ch[r.id]?' checked':'')+'><span class="box">✕</span><span>'+esc(r.nom||'Sans nom')+' · '+eur(r.montant)+'<small style="display:block;color:var(--muted)">'+esc(r.numero)+' '+esc(s?s.nom:r.rueNom||'')+'</small></span></label>';}).join(''):'<p class="hint">Aucun chèque'+(jr?' ce jour-là':'')+'.</p>')
+   +'<button type="button" class="primary" data-a="csave" style="margin-top:16px">Enregistrer</button>'
+   +'<button type="button" class="mi" data-a="creset" style="margin-top:10px">Tout remettre à zéro</button>');
   caisseUpdate();
 }
-function recapRows(rows){
+function caisseSaveNow(){
+  saveLocal(); clearTimeout(CT); var code=T.cur; cloudDo(function(){return docRef(code).set({cfg:cfgJSON(state.config)},{merge:true});});
+  var ex=expectedC(), got=cashCts()+checkedCts().t, tot=ex.cash+ex.cheque+ex.nd, d=got-tot;
+  closeSheet(); toast('Enregistré · '+(got===0?'rien compté':gap(d))); requestRender();
+}
+function recapRows(rows){var sv=CMODE; CMODE='tournee'; try{recapRows0(rows);}finally{CMODE=sv;}}
+function recapRows0(rows){
   var c0=cai0(), s=sellers();
   if(c0.mode==='chacun'&&s.length>1){var keep=CP; s.forEach(function(n){CP=n; rows.push([]); rows.push(['COMPTE DE '+n.toUpperCase()]); recapOne(rows);}); CP=keep; return;}
   recapOne(rows);
@@ -1843,6 +1858,8 @@ function ficheData(){
     var v=villageOf(r.rue); byV[v]=(byV[v]||0)+1;});
   var c=cai0(), n=c.mode==='chacun'?null:(c.n||{}), bil=[], pie=[], tb=0, tp=0;
   if(!n){n={}; var per=c.per||{}; Object.keys(per).forEach(function(w){var q=(per[w]||{}).n||{}; Object.keys(q).forEach(function(d){n[d]=(n[d]||0)+q[d];});});}
+  var fin=Object.keys(n).some(function(d){return n[d]>0;});
+  if(!fin){n={}; Object.keys(c.jours||{}).forEach(function(day){var rec=c.jours[day]||{}; Object.keys(rec).forEach(function(k){var q=(rec[k]||{}).n||{}; Object.keys(q).forEach(function(d){n[d]=(n[d]||0)+q[d];});});});}
   BILLETS.forEach(function(d){var q=n[d]||0; tb+=q*cts(d); bil.push({d:d,n:q});});
   PIECES.forEach(function(d){var q=n[d]||0; tp+=q*cts(d); if(d>=0.1||q)pie.push({d:d,n:q});});
   var chq=Object.keys(cq).map(Number).sort(function(a,b){return a-b;}).map(function(k){return {m:k,n:cq[k]};}), tc=chq.reduce(function(s,x){return s+x.m*x.n;},0);
@@ -2268,6 +2285,7 @@ function totauxHTML(){
   VILLAGES.forEach(function(v){var x=t[v],s=x.especes+x.cheque+x.nd; byV[v]=s; grand+=s; nb+=x.n; cols.concat('nd').forEach(function(c){byPay[c]+=x[c];});});
   function line(n,sub,val,max){return '<div class="line"><span class="n">'+n+(sub?'<small>'+sub+'</small>':'')+'</span><span class="v">'+eur(val)+'</span><div class="bar"><i style="width:'+(max>0?Math.round(val/max*100):0)+'%"></i></div></div>';}
   var html='<h2 style="margin-top:14px">Totaux</h2><div class="big"><span class="lbl">Total vendu</span><strong>'+eur(grand)+'</strong><span>'+pl(nb,'calendrier vendu','calendriers vendus')+'</span></div>';
+  html+='<button type="button" class="btn red" data-a="caissejour" style="width:100%;margin-top:14px;min-height:58px">Fin de journée : compter la caisse du jour</button>';
   html+='<button type="button" class="btn red" data-a="caisse" style="width:100%;margin-top:14px;min-height:58px">Fin de tournée : compter la caisse</button>';
   html+='<h2>Par village</h2>'+VILLAGES.map(function(v){return line(v,pl(t[v].n,'vente','ventes'),byV[v],grand);}).join('');
   html+='<h2>Par moyen de paiement</h2>'+cols.map(function(c){return line(PAY[c],'',byPay[c],grand);}).join('');
@@ -2423,7 +2441,10 @@ document.addEventListener('click',function(e){
   else if(a==='adminlist')adminListPanel();
   else if(a==='adminjoin'){joinCode(t.dataset.code).then(function(){closeSheet(); toast('Tournée rejointe');},function(m){toast(m);});}
   else if(a==='admoff'){T.admin=false; lsSet('admin',false); adminOut(); closeSheet(); toast('Mode administrateur désactivé');}
-  else if(a==='caisse')caissePanel();
+  else if(a==='caisse'){CMODE='tournee'; caissePanel();}
+  else if(a==='caissejour'){CMODE='jour'; CD=dayOf(Date.now()); caissePanel();}
+  else if(a==='cjday'){CD=dayShift(CD,+t.dataset.d); if(CD>dayOf(Date.now()))CD=dayOf(Date.now()); caissePanel();}
+  else if(a==='csave')caisseSaveNow();
   else if(a==='casstopadm'){if(armed(t,1500))casStopAdmin(t.dataset.cid);}
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
