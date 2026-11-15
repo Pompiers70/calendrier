@@ -285,6 +285,7 @@ input[type=text]{width:100%}
 .sg input[value=boite] + span{white-space:nowrap}
 .legend{gap:6px 9px; font-size:13px}
 .legend i{margin-right:4px; width:13px; height:13px}
+.tabs{grid-template-columns:repeat(5,1fr)}.tabs button{font-size:15px;letter-spacing:.01em;padding:0 2px}
 .fprev{margin-top:14px;background:#fff;color:#111;border-radius:12px;padding:12px;font-size:12px}
 .fh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px}
 .fh b{font-size:19px;display:block}.fh span{font-size:12px;color:#444}.ft{font-weight:700;font-size:13px;text-align:right}
@@ -352,12 +353,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.25</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.27</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.25</p>
+  <p class="sub">Calendriers des pompiers · v5.27</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -366,6 +367,7 @@ input[type=text]{width:100%}
   <button type="button" data-a="tab" data-v="ventes">Ventes</button>
   <button type="button" data-a="tab" data-v="totaux">Totaux</button>
   <button type="button" data-a="tab" data-v="carte">Carte</button>
+  <button type="button" data-a="gmenu">Menu</button>
 </nav>
 <div id="sheet" hidden></div>
 <div id="toast" role="status" hidden></div>
@@ -675,11 +677,22 @@ function canCreate(){
 }
 function mrow(a,title,sub,right,extra,cls){return '<button type="button" class="mr'+(cls?' '+cls:'')+'" data-a="'+a+'"'+(extra||'')+'><span class="g">'+title+(sub?'<small>'+sub+'</small>':'')+'</span>'+(right!==undefined&&right!==null?right:'<span class="chev">›</span>')+'</button>';}
 function menuPanel(){
+  var cur=tourOf(T.cur); if(!cur)return mainMenuPanel();
+  var tt=tourTotal(cur.code), role=T.admin?'Tu es administrateur de l\'app':(canArchive()?'Tu es administrateur':''), h=panelHead('Paramètres de la tournée','');
+  h+='<div class="hero2"><b>'+dot('tour:'+cur.code,dotState('tour:'+cur.code))+esc(cur.nom)+'</b><small>'+(role?esc(role)+' · ':'')+pl(tt.n,'vente','ventes')+' · '+eur(tt.s)+'</small>'
+   +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="part">Participants</button>'+(canCreate()&&GEO?'<button type="button" data-a="rues">Rues</button>':'')+'</div>'
+   +'<button type="button" class="lnk2" data-a="rename">Renommer</button></div>';
+  var rows=mrow('sauv','Restaurer une sauvegarde',esc(svLastTxt(cur.code)));
+  if(canArchive()&&!(T.list.filter(function(x){return x.code===T.cur&&x.cid;})[0]))rows+=mrow('histo','Historique de la tournée');
+  h+=mh('Sauvegarde')+'<div class="mcard">'+rows+'</div>';
+  var dg=mrow('leave','Quitter cette tournée','',null);
+  if(canDelete(cur))dg+=mrow('delete','Supprimer pour tout le monde','',null,'','r');
+  h+='<div class="dng2">'+dg+'</div>';
+  h+='<div class="mcard" style="margin-top:14px">'+mrow('gmenu','Menu général','Mes tournées, ma caserne, mon prénom…')+'</div>';
+  openPanel(h);
+}
+function mainMenuPanel(){
   var cur=tourOf(T.cur), h=panelHead('Menu','');
-  if(cur){var tt=tourTotal(cur.code), role=T.admin?'Tu es administrateur de l\'app':(canArchive()?'Tu es administrateur':'');
-    h+=mh('Ma tournée')+'<div class="hero2"><b>'+dot('tour:'+cur.code,dotState('tour:'+cur.code))+esc(cur.nom)+'</b><small>'+(role?esc(role)+' · ':'')+pl(tt.n,'vente','ventes')+' · '+eur(tt.s)+'</small>'
-     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="part">Participants</button>'+(canCreate()&&GEO?'<button type="button" data-a="rues">Rues</button>':'')+'</div>'
-     +'<button type="button" class="lnk2" data-a="rename">Renommer</button></div>';}
   var rows=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
     return mrow('switch',dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom),(on?'Ouverte · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes'),'<span class="amt">'+eur(x.s)+'</span>',' data-code="'+t.code+'"'+(on?' aria-current="true"':''));}).join('');
   rows+=T.left.map(function(l){return mrow('comeback',esc(l.nom),'Quittée · toucher pour revenir',null,' data-code="'+l.code+'"');}).join('');
@@ -688,13 +701,8 @@ function menuPanel(){
   h+=mh('Mes tournées')+'<div class="mcard">'+rows+'</div>';
   h+=mh('Ma caserne')+'<div class="mcard">'+casMenuRows()+'</div>';
   var nb=unread();
-  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+(cur?mrow('sauv','Restaurer une sauvegarde','Récupérer les passages de cette tournée'):'')+'</div>';
+  h+=mh('Moi')+'<div class="mcard">'+mrow('me','Mon prénom',esc(T.me||'à choisir')+(T.admin?' (admin)':''))+mrow('notifs','Notifications','',nb?'<span class="bdg in">'+nb+'</span>':null)+'</div>';
   if(T.admin)h+=mh('Administrateur de l\'app')+'<div class="mcard">'+mrow('adminlist','Toutes les tournées')+mrow('allcas','Toutes les casernes')+mrow('licences','Licences','Codes pour créer une caserne')+'</div>';
-  var dg='';
-  if(cur&&canArchive()&&!(tourOf(T.cur)&&T.list.filter(function(x){return x.code===T.cur&&x.cid;})[0]))dg+=mrow('histo','Historique de la tournée');
-  if(cur)dg+=mrow('leave','Quitter cette tournée','',null);
-  if(cur&&canDelete(cur))dg+=mrow('delete','Supprimer pour tout le monde','',null,'','r');
-  if(dg)h+='<div class="dng2">'+dg+'</div>';
   h+='<p class="copy">Calendriers des pompiers · par Noah Fournier · © 2026<br>Tous droits réservés. Reproduction ou réutilisation interdite sans autorisation.</p>';
   openPanel(h);
 }
@@ -836,7 +844,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.25';
+var DBG=[], VERSION='5.27';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1798,6 +1806,8 @@ window.addEventListener('afterprint',function(){var z=document.getElementById('p
 var SV_TIMER=null;
 function svCol(code){return docRef(code).collection('sauv');}
 function svStats(v){var n=0,nv=0,tot=0; Object.keys(v||{}).forEach(function(k){var r=v[k]; if(!r)return; n++; if(r.statut==='vendu'){nv++; tot+=Number(r.montant)||0;}}); return {n:n,nv:nv,tot:Math.round(tot*100)/100};}
+function svAgo(ts){var m=Math.max(0,Math.round((Date.now()-ts)/60000)); if(m<1)return 'à l\'instant'; if(m<60)return 'il y a '+m+' min'; var h=Math.round(m/60); if(h<24)return 'il y a '+h+' h'; var d=Math.round(h/24); return 'il y a '+d+(d>1?' jours':' jour');}
+function svLastTxt(code){var t=lsGet('sv:last:'+code,0); return t?'Dernière sauvegarde : '+svAgo(t):'Pas encore de sauvegarde sur ce téléphone';}
 function svSoon(){ if(!fs)return; clearTimeout(SV_TIMER); var code=T.cur; SV_TIMER=setTimeout(function(){svRun(code);},4000); }
 function svLastArchive(code){var c=loadT(code), lt=0; ((c.cfg&&c.cfg.archives)||[]).forEach(function(a){if(a.ts>lt)lt=a.ts;}); return lt;}
 var SV_CK=null;
@@ -1813,7 +1823,7 @@ function svRun(code,only){
     var js=JSON.stringify(v); if(js.length>900000)return;
     var next=((pm.i==null?-1:pm.i)+1)%3, ts=Date.now();
     return svCol(code).doc('s'+next).set({ts:ts,n:st.n,nv:st.nv,tot:st.tot,par:T.me||'',ventes:js}).then(function(){
-      return svCol(code).doc('meta').set({i:next,n:st.n,ts:ts});});
+      return svCol(code).doc('meta').set({i:next,n:st.n,ts:ts});}).then(function(){lsSet('sv:last:'+code,ts);});
   }).catch(function(){});
 }
 function svCanRestore(code){
@@ -1834,8 +1844,9 @@ function svPanel(){
   var code=T.cur; if(!code||!fs){toast('Sauvegardes indisponibles hors ligne.'); return;}
   svCanRestore(code).then(function(ok){
     if(!ok){var t=tourOf(code); openPanel(panelHead('Restaurer une sauvegarde','')+'<p class="hint">Seuls les administrateurs et les personnes affectées à cette tournée peuvent restaurer. Préviens l\'administrateur de ta caserne et donne-lui le nom de la tournée : <b>« '+esc(t?t.nom:'')+' »</b>.</p><button type="button" class="primary" data-a="close">OK</button>'); return;}
-    openPanel(panelHead('Restaurer une sauvegarde','Les 3 dernières copies automatiques')+'<p class="hint" id="sv-st">Chargement…</p><div id="sv-list"></div>'
+    openPanel(panelHead('Restaurer une sauvegarde','Les 3 dernières copies automatiques')+'<p class="hint" id="sv-last" style="font-weight:600">Dernière sauvegarde : …</p><p class="hint" id="sv-st">Chargement…</p><div id="sv-list"></div>'
       +'<p class="note">Restaurer remet les passages de la sauvegarde. Il ne supprime rien : les ventes faites depuis restent en place.</p>');
+    svCol(code).doc('meta').get().then(function(m){var e=$('#sv-last'); if(!e)return; var d=m.exists?m.data():null; if(d&&d.ts){lsSet('sv:last:'+code,d.ts); e.textContent='Dernière sauvegarde : '+svAgo(d.ts);} else e.textContent='Aucune sauvegarde pour le moment.';}).catch(function(){var e=$('#sv-last'); if(e)e.textContent='Dernière sauvegarde : impossible de la lire (hors ligne ?)';});
     Promise.all([0,1,2].map(function(i){return svCol(code).doc('s'+i).get().then(function(s){var d=s.exists?s.data():null; if(d)d.slot=i; return d;}).catch(function(){return null;});})).then(function(a){
       var L=a.filter(Boolean).sort(function(x,y){return y.ts-x.ts;}); var st=$('#sv-st'); if(!st)return;
       st.textContent=L.length?'Choisis la sauvegarde à remettre.':'Aucune sauvegarde pour le moment. Elles se créent à chaque vente.';
@@ -2090,6 +2101,7 @@ document.addEventListener('click',function(e){
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
   else if(a==='maisonadd')maisonAdd();
+  else if(a==='gmenu')mainMenuPanel();
   else if(a==='sauv')svPanel();
   else if(a==='svdo')svDo(t);
   else if(a==='feuille')feuillePanel();
