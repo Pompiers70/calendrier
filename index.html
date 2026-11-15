@@ -353,15 +353,21 @@ input[type=text]{width:100%}
 .pv{width:auto!important; min-width:100%; border-collapse:collapse}
 .pv th,.pv td{padding:8px 10px!important; text-align:left!important; white-space:nowrap; font-size:13px!important; border-bottom:1px solid var(--line,#ccc)}
 .pv th{font-weight:700; background:rgba(128,128,128,.12)}
+.btnrow2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px}.btnrow2 .primary{margin:0}
+.pgs{margin-top:14px; display:flex; flex-direction:column; gap:14px}
+.pgl{font:700 13px var(--font-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 4px}
+.pgb{position:relative; background:#fff; border-radius:4px; box-shadow:0 2px 12px rgba(0,0,0,.35); overflow:hidden}
+.pg{position:absolute; left:0; top:0; width:186mm; height:273mm; padding:12mm; box-sizing:content-box; transform-origin:0 0; background:#fff; color:#111; font-family:Arial,sans-serif; font-size:12px; overflow:hidden}
+.pgp .fcols{column-count:2; column-gap:10px}.pgp .fr{font-size:10.5px; break-inside:avoid; margin-bottom:8px}.pgp .fr table,.pgp .fr th,.pgp .fr td{font-size:10.5px}.pgp .fr h3{font-size:12.5px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.29</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.30</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.29</p>
+  <p class="sub">Calendriers des pompiers · v5.30</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -848,7 +854,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.29';
+var DBG=[], VERSION='5.30';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1810,11 +1816,39 @@ function feuilleHTML(){
     h+='</div></section>';});
   return h;
 }
-function feuillePanel(){
-  openPanel(panelHead('Feuille A4','Un cadre par rue, village par village')
-   +'<p class="hint">Aperçu ci-dessous. Touche « Imprimer » puis choisis ton imprimante, ou « Enregistrer en PDF ».</p>'
-   +'<button type="button" class="primary" data-a="feuilleprint">Imprimer</button><div class="fprev">'+feuilleHTML()+'</div>');
+function feuillePages(){
+  var z=document.createElement('div'); z.className='pgp'; z.style.cssText='position:absolute;left:-9999px;top:0;width:186mm;font-size:12px'; z.innerHTML=feuilleHTML(); document.body.appendChild(z);
+  var H=930, fhd=z.querySelector('.fh'), headH=fhd?fhd.offsetHeight+12:0, secs=[].slice.call(z.querySelectorAll('.fv')), pages=[], cur, used;
+  function np(){cur=[]; pages.push(cur); used=pages.length===1?headH:0;}
+  np();
+  secs.forEach(function(s){
+    var h=s.offsetHeight, cap=H-(pages.length===1?headH:0);
+    if(h<=H-(used&&pages.length===1?0:0)&&used+h<=H){cur.push(s.outerHTML); used+=h; return;}
+    if(h<=H-(pages.length===1?0:0)&&h<=H){np(); cur.push(s.outerHTML); used=h; return;}
+    var v=s.querySelector('h2').textContent, fr=[].slice.call(s.querySelectorAll('.fr')), th=s.querySelector('h2').offsetHeight+16, first=true;
+    if(used>0&&used+th+160>H)np();
+    var cA=used+th, cB=used+th, items=[];
+    function flush(){cur.push('<section class="fv"><h2>'+esc(v)+(first?'':' (suite)')+'</h2><div class="fcols">'+items.join('')+'</div></section>'); items=[]; first=false;}
+    fr.forEach(function(e){var eh=e.offsetHeight+8, col=cA<=cB?'A':'B', c=col==='A'?cA:cB;
+      if(c+eh>H&&items.length){flush(); np(); cA=th; cB=th; col='A'; c=cA;}
+      items.push(e.outerHTML); if(col==='A')cA=c+eh; else cB=c+eh;});
+    if(items.length){flush(); used=Math.max(cA,cB);}
+  });
+  var head=fhd?fhd.outerHTML:''; document.body.removeChild(z);
+  return pages.filter(function(p){return p.length;}).map(function(p,i){return (i===0?head:'')+p.join('');});
 }
+function feuillePanel(){
+  var pg=feuillePages(), n=pg.length;
+  openPanel(panelHead('Aperçu de la feuille A4',pl(n,'page','pages')+' · toutes les maisons, prêtes à remplir')
+   +'<div class="btnrow2"><button type="button" class="primary" data-a="feuilleprint">Imprimer</button><button type="button" class="btn" data-a="exportshare" style="min-height:56px">Partager le tableur</button></div>'
+   +'<div class="pgs" id="pgs">'+pg.map(function(h,i){return '<div class="pgw"><div class="pgl">Page '+(i+1)+' / '+n+'</div><div class="pgb"><div class="pg pgp">'+h+'</div></div></div>';}).join('')+'</div>');
+  feuilleScale();
+}
+function feuilleScale(){
+  var box=document.getElementById('pgs'); if(!box)return; var W=box.clientWidth||340, s=W/794;
+  [].slice.call(box.querySelectorAll('.pgb')).forEach(function(b){b.style.height=Math.round(1123*s)+'px'; var p=b.firstChild; p.style.transform='scale('+s+')';});
+}
+window.addEventListener('resize',feuilleScale);
 function feuillePrint(){
   var z=document.getElementById('pz'); if(!z){z=document.createElement('div'); z.id='pz'; document.body.appendChild(z);}
   z.innerHTML=feuilleHTML(); z.style.cssText='display:block;position:absolute;left:-9999px;top:0;width:186mm;font-size:12px';
@@ -2010,24 +2044,21 @@ function acctResetDo(){
 
 /* ---------- export tableur : aperçu + partager ---------- */
 function exportRows(){
-  var rows=[['Village','Rue','Numéro','Nom','Montant','Paiement','Date']];
-  Object.keys(state.ventes).map(function(k){return state.ventes[k];}).filter(function(r){return r.statut==='vendu';}).sort(function(a,b){return (a.ts||0)-(b.ts||0);}).forEach(function(r){
-    var s=streetById(r.rue); rows.push([villageOf(r.rue),s?s.nom:r.rueNom,r.numero,r.nom,String(r.montant==null?'':r.montant).replace('.',','),PAY[r.paiement]||'',new Date(r.ts||Date.now()).toLocaleDateString('fr-FR')]);});
+  var rows=[['Village','Rue','Numéro','Nom','Montant','Paiement','Statut','Date']], cfgR=state.config.rues, byV={};
+  VILLAGES.forEach(function(v){byV[v]=[];});
+  allStreets().forEach(function(s){ if(cfgR&&cfgR.indexOf(s.id)<0)return; var nums=streetNums(s.id); if(!nums.length)return; var v=villageOf(s.id); (byV[v]=byV[v]||[]).push({s:s,nums:nums}); });
+  Object.keys(byV).forEach(function(v){ byV[v].sort(function(a,b){return a.s.nom.localeCompare(b.s.nom,'fr');}).forEach(function(x){
+    x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', ven=st==='vendu';
+      var lab=ven?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre';
+      rows.push([v,x.s.nom,n,r&&r.nom||'',ven&&r.montant!=null&&r.montant!==''?String(r.montant).replace('.',','):'',ven?(PAY[r.paiement]||''):'',lab,ven?new Date(r.ts||Date.now()).toLocaleDateString('fr-FR'):'']);});});});
   try{recapRows(rows);}catch(e){}
   return rows;
 }
 function exportCsvText(rows){return '\ufeff'+rows.map(function(r){return r.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');}
 function exportPanel(){
-  openPanel(panelHead('Exporter les ventes','Fichier tableur (CSV)')+'<button type="button" class="primary" data-a="exportprev">Aperçu</button><button type="button" class="btn" data-a="exportshare" style="width:100%;margin-top:12px;min-height:56px">Partager</button>');
+  openPanel(panelHead('Exporter les ventes','Tableur (CSV) avec toutes les maisons')+'<button type="button" class="primary" data-a="exportprev">Aperçu</button><button type="button" class="btn" data-a="exportshare" style="width:100%;margin-top:12px;min-height:56px">Partager</button><p class="note" style="margin-top:12px">Le tableur liste toutes les rues et tous les numéros : « Libre » tant que rien n\'est noté, rempli pour les maisons déjà faites.</p>');
 }
-function exportPreview(){
-  var rows=exportRows(), n=Math.max(0,rows.filter(function(r){return r.length>=7&&r[0]!=='Village'&&r[2]!=='';}).length);
-  var w=rows.reduce(function(m,r){return Math.max(m,r.length);},1);
-  var tb=rows.map(function(r,i){if(!r.length)return '<tr><td colspan="'+w+'" style="border:0;height:10px"></td></tr>'; var th=(i===0);
-    var cells=''; for(var k=0;k<w;k++)cells+='<'+(th?'th':'td')+'>'+esc(r[k]==null?'':r[k])+'</'+(th?'th':'td')+'>'; return '<tr>'+cells+'</tr>';}).join('');
-  openPanel(panelHead('Aperçu du tableur',pl(rows.filter(function(r){return r.length===7&&r[0]!=='Village'&&r[0]!==''&&/^\d/.test(String(r[2]));}).length,'vente','ventes'))
-    +'<div class="scroll" style="margin-top:6px"><table class="pv"><tbody>'+tb+'</tbody></table></div><button type="button" class="primary" data-a="exportshare" style="margin-top:14px">Partager</button>');
-}
+function exportPreview(){feuillePanel();}
 function exportShare(){
   var csv=exportCsvText(exportRows()), name='calendriers-ventes.csv';
   try{var f=new File([csv],name,{type:'text/csv'});
