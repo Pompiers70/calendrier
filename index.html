@@ -331,12 +331,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.20</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.21</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.20</p>
+  <p class="sub">Calendriers des pompiers · v5.21</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -656,7 +656,7 @@ function menuPanel(){
   var cur=tourOf(T.cur), h=panelHead('Menu','');
   if(cur){var tt=tourTotal(cur.code), role=T.admin?'Tu es administrateur de l\'app':(canArchive()?'Tu es administrateur':'');
     h+=mh('Ma tournée')+'<div class="hero2"><b>'+dot('tour:'+cur.code,dotState('tour:'+cur.code))+esc(cur.nom)+'</b><small>'+(role?esc(role)+' · ':'')+pl(tt.n,'vente','ventes')+' · '+eur(tt.s)+'</small>'
-     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="part">Participants</button></div>'
+     +'<div class="acts2"><button type="button" data-a="share">Partager</button><button type="button" data-a="part">Participants</button>'+(canCreate()&&GEO?'<button type="button" data-a="rues">Rues</button>':'')+'</div>'
      +'<button type="button" class="lnk2" data-a="rename">Renommer</button></div>';}
   var rows=T.list.map(function(t){var x=tourTotal(t.code), on=t.code===T.cur;
     return mrow('switch',dot('tour:'+t.code,dotState('tour:'+t.code))+esc(t.nom),(on?'Ouverte · ':'')+(t.par?'par '+esc(t.par)+' · ':'')+pl(x.n,'vente','ventes'),'<span class="amt">'+eur(x.s)+'</span>',' data-code="'+t.code+'"'+(on?' aria-current="true"':''));}).join('');
@@ -697,12 +697,7 @@ function sharePanel(){
    +'<p class="note">Un collègue scanne ce QR code depuis « Rejoindre une tournée » dans l\'appli, ou tape le code. Si le code est connu de quelqu\'un qui ne doit pas l\'avoir, crée une nouvelle tournée.</p>'+(fs?'':'<p class="note" style="color:var(--accent)">Synchronisation non activée : le code ne fonctionnera pas encore sur un autre téléphone.</p>'));
   lib('qr').then(function(){var b=$('#qrbox'); if(b)b.innerHTML=qrSvg(shareUrl(t.code));}).catch(function(){var b=$('#qrbox'); if(b)b.innerHTML='<span class="hint" style="color:#000;padding:10px">QR code indisponible sans connexion. Utilise le code.</span>';});
 }
-function ruesPanel(){
-  var r=state.config.rues;
-  openPanel(panelHead('Rues de cette tournée','Coche les rues à faire.')
-   +'<div class="dz" style="margin:0 0 10px"><button type="button" class="ghost" data-a="allrues">Tout cocher</button><button type="button" class="ghost" data-a="norues">Tout décocher</button></div>'
-   +allStreets().map(function(s){var on=!r||r.indexOf(s.id)>-1; return '<label class="cb" style="margin-bottom:8px"><input type="checkbox" data-a="rue" data-id="'+s.id+'"'+(on?' checked':'')+'><span class="box">✕</span><span>'+esc(s.nom)+'</span></label>';}).join(''));
-}
+function ruesPanel(){ruesAdminPanel();}
 function renamePanel(){var t=tourOf(T.cur); openPanel(panelHead('Renommer la tournée','')+'<form data-f="rename"><label class="fld" for="rn-nom">Nom</label><input type="text" id="rn-nom" autocomplete="off" value="'+esc(t?t.nom:'')+'"><button type="submit" class="primary">Enregistrer</button></form>');}
 var ADMIN_HASH='50b42393a019f612e9dd8f5d83b1fd135fbef4ec87ce860f022d2132d44e0dbf';
 var ADMIN_EMAIL='admin@pompiers70.fr';
@@ -819,7 +814,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.20';
+var DBG=[], VERSION='5.21';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1724,6 +1719,27 @@ function maisonAdd(){
   toast(added?(added===1?'Maison ajoutée à la tournée':added+' maisons ajoutées'):'Déjà dans la tournée');
 }
 
+/* ---------- supprimer des rues (administrateur) ---------- */
+function rueCount(id){var n=0; Object.keys(state.ventes).forEach(function(k){if(state.ventes[k].rue===id)n++;}); return n;}
+function ruesAdminPanel(){
+  if(!GEO||!canCreate()){toast('Réservé aux administrateurs.'); return;}
+  var rows=(GEO.streets||[]).map(function(s){var nb=Object.keys(GEO.pts[s.id]||{}).length, ve=rueCount(s.id);
+    return '<div class="mr" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line,#333)"><div style="flex:1;min-width:0"><div style="font-size:18px;line-height:1.2">'+esc(s.nom)+'</div><div class="note" style="margin:2px 0 0">'+esc(s.v||'')+' · '+pl(nb,'maison','maisons')+(ve?' · '+pl(ve,'passage noté','passages notés'):'')+'</div></div>'
+     +(ve?'<span class="note" style="margin:0;text-align:right">Contient des ventes</span>':'<button type="button" class="lk" data-a="ruedel" data-id="'+esc(s.id)+'" style="color:var(--accent)">Supprimer</button>')+'</div>';}).join('');
+  openPanel(panelHead('Rues de la tournée','Seules les rues sans vente peuvent être supprimées')+(rows||'<p class="hint">Aucune rue.</p>'));
+}
+function rueDel(btn){
+  var id=btn.dataset.id; if(!GEO||!canCreate())return;
+  if(rueCount(id)){toast('Cette rue contient des ventes.'); return;}
+  if(!armed(btn,1500))return;
+  GEO.streets=(GEO.streets||[]).filter(function(s){return s.id!==id;}); delete GEO.pts[id];
+  if(state.config.rues)state.config.rues=state.config.rues.filter(function(x){return x!==id;});
+  if(state.config.numeros)delete state.config.numeros[id]; if(state.config.hidden)delete state.config.hidden[id];
+  var vb=mp.vb&&mp.vb.slice(); state.config.geo=GEO; applyGeo(state.config); mp.vb=vb; mp.sel=null; mp.tk='';
+  saveLocal(); var code=T.cur; cloudDo(function(){return docRef(code).set({geo:JSON.stringify(GEO),cfg:cfgJSON(state.config)},{merge:true});});
+  ruesAdminPanel(); requestRender(); toast('Rue supprimée');
+}
+
 
 function segFilter(seg){return VILLAGES.length<2?'':'<div class="seg filter" role="group" aria-label="Village">'+vSegs(function(a){return seg(a[0],a[1]);},true)+'</div>';}
 /* ---------- rendu ---------- */
@@ -1957,6 +1973,7 @@ document.addEventListener('click',function(e){
   else if(a==='casrefdone')toast('Ces tournées ont déjà été refaites.');
   else if(a==='memmenu')memMenu(t.dataset.cid,t.dataset.mid);
   else if(a==='maisonadd')maisonAdd();
+  else if(a==='ruedel')rueDel(t);
   else if(a==='memall'){MEMALL[t.dataset.cid]=true; casLoad(t.dataset.cid);}
   else if(a==='casrefaire')casRefairePanel(t.dataset.cid);
   else if(a==='casrefok'){if(armed(t,1500))casRefaire(t.dataset.cid,t.dataset.ts,t);}
