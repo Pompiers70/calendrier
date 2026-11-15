@@ -353,12 +353,12 @@ input[type=text]{width:100%}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.27</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.28</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.27</p>
+  <p class="sub">Calendriers des pompiers · v5.28</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -844,7 +844,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.27';
+var DBG=[], VERSION='5.28';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1752,23 +1752,40 @@ function maisonAdd(){
 /* ---------- supprimer des rues (administrateur) ---------- */
 function rueCount(id){var n=0; Object.keys(state.ventes).forEach(function(k){if(state.ventes[k].rue===id)n++;}); return n;}
 function ruesAdminPanel(){
-  if(!GEO||!canCreate()){toast('Réservé aux administrateurs.'); return;}
-  var rows=(GEO.streets||[]).map(function(s){var nb=Object.keys(GEO.pts[s.id]||{}).length, ve=rueCount(s.id);
-    return '<div class="mr" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line,#333)"><div style="flex:1;min-width:0"><div style="font-size:18px;line-height:1.2">'+esc(s.nom)+'</div><div class="note" style="margin:2px 0 0">'+esc(s.v||'')+' · '+pl(nb,'maison','maisons')+(ve?' · '+pl(ve,'passage noté','passages notés'):'')+'</div></div>'
+  if(!canCreate()){toast('Réservé aux administrateurs.'); return;}
+  var rows=allStreets().map(function(s){var nb=streetNums(s.id).length, ve=rueCount(s.id);
+    return '<div class="mr" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line,#333)"><div style="flex:1;min-width:0"><div style="font-size:18px;line-height:1.2">'+esc(s.nom)+'</div><div class="note" style="margin:2px 0 0">'+esc(villageOf(s.id)||'')+' · '+pl(nb,'maison','maisons')+(ve?' · '+pl(ve,'passage noté','passages notés'):'')+'</div></div>'
      +(ve?'<span class="note" style="margin:0;text-align:right">Contient des ventes</span>':'<button type="button" class="lk" data-a="ruedel" data-id="'+esc(s.id)+'" style="color:var(--accent)">Supprimer</button>')+'</div>';}).join('');
   openPanel(panelHead('Rues de la tournée','Seules les rues sans vente peuvent être supprimées')+(rows||'<p class="hint">Aucune rue.</p>'));
 }
 function rueDel(btn){
-  var id=btn.dataset.id; if(!GEO||!canCreate())return;
+  var id=btn.dataset.id; if(!canCreate())return;
   if(rueCount(id)){toast('Cette rue contient des ventes.'); return;}
   if(!armed(btn,1500))return;
-  GEO.streets=(GEO.streets||[]).filter(function(s){return s.id!==id;}); delete GEO.pts[id];
+  if(GEO){GEO.streets=(GEO.streets||[]).filter(function(s){return s.id!==id;}); delete GEO.pts[id];}
+  state.config.custom=(state.config.custom||[]).filter(function(s){return s.id!==id;}); if(state.config.villages)delete state.config.villages[id];
   if(state.config.rues)state.config.rues=state.config.rues.filter(function(x){return x!==id;});
   if(state.config.numeros)delete state.config.numeros[id]; if(state.config.hidden)delete state.config.hidden[id];
-  var vb=mp.vb&&mp.vb.slice(); state.config.geo=GEO; applyGeo(state.config); mp.vb=vb; mp.sel=null; mp.tk='';
-  saveLocal(); var code=T.cur; cloudDo(function(){return docRef(code).set({geo:JSON.stringify(GEO),cfg:cfgJSON(state.config)},{merge:true});});
+  var vb=mp.vb&&mp.vb.slice(); if(GEO){state.config.geo=GEO; applyGeo(state.config);} mp.vb=vb; mp.sel=null; mp.tk='';
+  saveLocal(); var code=T.cur; cloudDo(function(){var o={cfg:cfgJSON(state.config)}; if(GEO)o.geo=JSON.stringify(GEO); return docRef(code).set(o,{merge:true});});
   if(btn.dataset.from){state.street=null; state.prune=false; render(); window.scrollTo(0,0);} else ruesAdminPanel();
   requestRender(); toast('Rue supprimée');
+}
+
+/* ---------- adresses ajoutées à la main : placées sur la carte ---------- */
+function geoPlace(id){
+  if(!GEO||!id)return; var st=streetById(id); if(!st)return; var vil=norm(villageOf(id)||''), nom=norm(st.nom);
+  var nums=streetNums(id).filter(function(n){return !(GEO.pts[id]&&GEO.pts[id][n]);}); if(!nums.length)return;
+  loadDB().then(function(db){
+    var got=0, pts=GEO.pts[id]||{};
+    db.forEach(function(c){ if(vil&&norm(c.n)!==vil)return;
+      c.s.forEach(function(s){ if(norm(String(s[0]))!==nom)return;
+        s[2].forEach(function(p){var n=String(p[0]); if(nums.indexOf(n)>-1&&!pts[n]){pts[n]=[Math.round(p[1]*1e6)/1e6,Math.round(p[2]*1e6)/1e6]; got++;}}); }); });
+    if(!got)return; GEO.pts[id]=pts; DATA=GEO.pts; state.config.geo=GEO; mp.tk='';
+    saveLocal(); var code=T.cur; cloudDo(function(){return docRef(code).set({geo:JSON.stringify(GEO)},{merge:true});});
+    requestRender(); setTimeout(function(){try{mapDraw();}catch(e){}},50);
+    toast(pl(got,'adresse placée sur la carte','adresses placées sur la carte'));
+  }).catch(function(){});
 }
 
 /* ---------- feuille A4 à imprimer ---------- */
@@ -1918,7 +1935,7 @@ function streetHTML(){
    +'<form class="addn" data-f="addnum"><input type="text" id="newnum" placeholder="Ajouter un numéro (ex. : 8)" autocomplete="off" aria-label="Numéro à ajouter"><button class="btn red" type="submit">Ajouter</button></form>'
    +'<div class="quick" style="margin:10px 0 0"><button type="button" data-a="quickadd" data-v="1-10">1 à 10</button><button type="button" data-a="quickadd" data-v="1-20">1 à 20</button><button type="button" data-a="quickadd" data-v="1-30">1 à 30</button><button type="button" data-a="quickadd" data-v="1-50">1 à 50</button></div>'
    +'<p class="hint">Ou tape un numéro, une liste (2, 4, 6) ou une série (1-20). Appartement : 12 A ou 12 app 3.</p>'
-   +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'+(canCreate()&&GEO?'<button type="button" class="btn" data-a="ruedel" data-from="1" data-id="'+esc(id)+'" style="width:100%;margin:0 0 12px;color:var(--accent)">Supprimer cette rue</button>':'')
+   +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'+(canCreate()?'<button type="button" class="btn" data-a="ruedel" data-from="1" data-id="'+esc(id)+'" style="width:100%;margin:0 0 12px;color:var(--accent)">Supprimer cette rue</button>':'')
    +(state.prune?'<p class="hint" style="color:var(--accent);font-weight:600;margin-top:0">Touche un numéro pour le retirer de la liste.</p>':'')
    +'<details class="add" style="margin:0 0 14px"><summary>Coller une liste de numéros</summary><form data-f="addlist"><textarea id="paste" rows="5" placeholder="Un numéro par ligne :&#10;1&#10;2&#10;2 bis&#10;3 ter&#10;4 A" autocomplete="off" aria-label="Liste de numéros"></textarea><button class="btn red" type="submit">Ajouter la liste</button></form></details>'
    +'<div class="legend"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
@@ -2025,7 +2042,7 @@ function addNumbers(text,sid){
     else add.push(p.slice(0,24));});
   var n=0; add.forEach(function(x){if(!have[x]){have[x]=1; var hi=hid.indexOf(x); if(hi>-1)hid.splice(hi,1); else cur.push(x); n++;}});
   if(!n){toast('Déjà dans la liste'); return;}
-  state.config.numeros[id]=cur; state.config.hidden[id]=hid; putCfg(); toast(pl(n,'numéro ajouté','numéros ajoutés'));
+  state.config.numeros[id]=cur; state.config.hidden[id]=hid; putCfg(); toast(pl(n,'numéro ajouté','numéros ajoutés')); geoPlace(id);
   setTimeout(function(){var e=$('#newnum'); if(e)e.focus();},30);
 }
 function saveFile(name,text,mime){
