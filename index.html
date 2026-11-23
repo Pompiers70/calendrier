@@ -380,15 +380,26 @@ input[type=text]{width:100%}
 .fx{border:2px solid #111; min-height:22px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px}
 .pgp .fr td{padding:2px 6px!important}.pgp .fr th{padding:2px 6px!important}.pgp .fr h3{padding:3px 8px}
 .cjnav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0 4px}.cjnav b{font-size:18px; text-transform:capitalize}.cjnav button{min-width:52px; min-height:52px; border-radius:14px; border:2px solid var(--line,#444); background:transparent; color:inherit; font-size:26px}.cjnav button:disabled{opacity:.3}
+.mdot.libre{fill:#c9ced6; stroke:#8b93a0}
+.mdot.inhab{fill:#7c5cbf; stroke:#7c5cbf}
+.legend .l-libre{background:#c9ced6; border:2px solid #8b93a0}
+.legend .l-inhab{background:#7c5cbf; border:2px solid #7c5cbf}
+.plaque.st-inhab{background:#7c5cbf; color:#fff; border-color:#7c5cbf; box-shadow:none}
+#mpos{pointer-events:none}
+.pdot{fill:#1a73e8; stroke:#fff}
+.pacc{fill:rgba(26,115,232,.14); stroke:rgba(26,115,232,.35); stroke-width:1}
+.pcone{fill:rgba(26,115,232,.38)}
+.mapzoom #locbtn{font-size:22px}
+.mapzoom #locbtn[aria-pressed=true]{background:#1a73e8; color:#fff}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.34</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.35</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.34</p>
+  <p class="sub">Calendriers des pompiers · v5.35</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -408,7 +419,7 @@ input[type=text]{width:100%}
 var KEY='tournee-calendriers-v1';
 var VILLAGES=['Crevans','La Chapelle'];
 var PAY={especes:'Espèces',cheque:'Chèque'};
-var STAT={vendu:'Vendu',repasse:'Repasse',refus:'Refus',boite:'Boîte'};
+var STAT={vendu:'Vendu',repasse:'Repasse',refus:'Refus',boite:'Boîte',inhab:'Inhabitée'};
 var REP_GAP=3600000, REP_NEED=3;
 function boiteDlg(){var old=$('#dlg'); if(old)old.remove(); var d=document.createElement('div'); d.id='dlg'; d.className='dlg'; d.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true"><h3>Boîte aux lettres</h3><p style="font-size:21px;font-weight:700;margin:0 0 6px">3 repasses sans réponse.</p><p style="font-size:19px;margin:0 0 18px">Mets le calendrier dans la boîte aux lettres.</p><button type="button" class="primary" data-a="dlgno">OK, c\'est fait</button></div>'; document.body.appendChild(d);}
 function repN(r){return (r&&r.rep&&r.rep.length)||0;}
@@ -494,6 +505,47 @@ function roadLine(id){
   out.unshift(ext(out[0],out[1])); out.push(ext(out[out.length-1],out[out.length-2]));
   return (ROADS[id]=out);
 }
+var POS=null, POSW=null, POSH=null, POSOR=false;
+function posDraw(){
+  var g=$('#mpos'), svg=$('#mapsvg'); if(!g||!svg)return;
+  if(!POS||!mp.vb){g.innerHTML=''; return;}
+  var u=mp.vb[2]/(svg.clientWidth||360), p=pxy([POS.lat,POS.lon]), X=p[0].toFixed(1), Y=p[1].toFixed(1), h='';
+  var ar=Math.max(6*u,Math.min(POS.acc||0,150));
+  h+='<circle class="pacc" cx="'+X+'" cy="'+Y+'" r="'+ar.toFixed(1)+'"/>';
+  if(POSH!=null)h+='<path class="pcone" transform="translate('+X+' '+Y+') rotate('+POSH.toFixed(0)+')" d="M0 0 L'+(-17*u).toFixed(1)+' '+(-34*u).toFixed(1)+' A'+(38*u).toFixed(1)+' '+(38*u).toFixed(1)+' 0 0 1 '+(17*u).toFixed(1)+' '+(-34*u).toFixed(1)+' Z"/>';
+  h+='<circle class="pdot" cx="'+X+'" cy="'+Y+'" r="'+(8*u).toFixed(1)+'" stroke-width="'+(3*u).toFixed(1)+'"/>';
+  g.innerHTML=h;
+}
+function posHead(e){
+  var h=null;
+  if(typeof e.webkitCompassHeading==='number')h=e.webkitCompassHeading;
+  else if(e.absolute&&typeof e.alpha==='number')h=(360-e.alpha)%360;
+  if(h==null||isNaN(h))return; POSOR=true; POSH=h;
+  var now=Date.now(); if(now-(posHead.t||0)<150)return; posHead.t=now; posDraw();
+}
+function posStop(){
+  if(POSW!=null&&navigator.geolocation)navigator.geolocation.clearWatch(POSW);
+  POSW=null; POS=null; POSH=null; POSOR=false;
+  window.removeEventListener('deviceorientationabsolute',posHead,true); window.removeEventListener('deviceorientation',posHead,true);
+  posDraw(); var b=$('#locbtn'); if(b)b.setAttribute('aria-pressed','false');
+}
+function posStart(){
+  if(!navigator.geolocation){toast('Position indisponible sur cet appareil'); return;}
+  var first=true;
+  POSW=navigator.geolocation.watchPosition(function(p){
+    POS={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy};
+    if(!POSOR&&p.coords.heading!=null&&!isNaN(p.coords.heading)&&(p.coords.speed||0)>0.7)POSH=p.coords.heading;
+    if(first){first=false; var xy=pxy([POS.lat,POS.lon]), vb=mp.vb||fullVB(), w=Math.min(vb[2],260), h=w/ASPECT;
+      var f=fullVB(); if(xy[0]>f[0]-400&&xy[0]<f[0]+f[2]+400&&xy[1]>f[1]-400&&xy[1]<f[1]+f[3]+400){mp.vb=[xy[0]-w/2,xy[1]-h/2,w,h]; mapDraw();} else {toast('Tu es loin de la tournée'); posDraw();}}
+    else posDraw();
+  },function(er){posStop(); toast(er&&er.code===1?'Autorise la position dans les réglages du téléphone':'Position introuvable pour l’instant');},{enableHighAccuracy:true,maximumAge:2000,timeout:20000});
+  var go=function(){window.addEventListener('deviceorientationabsolute',posHead,true); window.addEventListener('deviceorientation',posHead,true);};
+  try{
+    go();
+    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function')DeviceOrientationEvent.requestPermission().catch(function(){});
+  }catch(e){}
+  var b=$('#locbtn'); if(b)b.setAttribute('aria-pressed','true');
+}
 function mapDraw(){
   var svg=$('#mapsvg'); if(!svg)return;
   if(!mp.vb)mp.vb=fullVB();
@@ -519,15 +571,15 @@ function mapDraw(){
   var L=10; [10,20,50,100,200,500].forEach(function(c){if(c<=100*u)L=c;});
   var bx=vb[0]+14*u, by=vb[1]+vb[3]-16*u;
   h+='<line class="msc" x1="'+bx.toFixed(1)+'" y1="'+by.toFixed(1)+'" x2="'+(bx+L).toFixed(1)+'" y2="'+by.toFixed(1)+'" stroke-width="'+(3*u).toFixed(2)+'"/><text class="mlab" x="'+bx.toFixed(1)+'" y="'+(by-6*u).toFixed(1)+'" font-size="'+(11*u).toFixed(2)+'" stroke-width="'+(3*u).toFixed(2)+'">'+L+' m</text>';
-  $('#mg').innerHTML=h;
+  $('#mg').innerHTML=h; posDraw();
 }
 function mapZoom(f,cx,cy){var vb=mp.vb, fullW=fullVB()[2], nw=Math.max(50,Math.min(fullW*1.3,vb[2]*f)), nh=nw/ASPECT, fx=(cx-vb[0])/vb[2], fy=(cy-vb[1])/vb[3]; mp.vb=[cx-fx*nw,cy-fy*nh,nw,nh];}
 function mapBlock(){
   var chips='<div class="mapchips" role="group" aria-label="Zoomer sur une rue"><button type="button" data-a="mapzoom" aria-pressed="'+(!mp.sel)+'">Tout voir</button>'+mapStreets().map(function(s){return '<button type="button" data-a="mapzoom" data-id="'+s.id+'" aria-pressed="'+(mp.sel===s.id)+'">'+esc(s.nom)+'</button>';}).join('')+'</div>';
-  var box='<div class="mapbox"><svg id="mapsvg" viewBox="0 0 600 500" role="img" aria-label="Plan des maisons de la tournée">'+(GEO?'<g id="bgt"></g>':BGIMG)+'<g id="mg"></g></svg><div class="mapcredit"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><div class="mapzoom"><button type="button" data-a="mapin" aria-label="Zoomer">+</button><button type="button" data-a="mapout" aria-label="Dézoomer">−</button></div></div>';
+  var box='<div class="mapbox"><svg id="mapsvg" viewBox="0 0 600 500" role="img" aria-label="Plan des maisons de la tournée">'+(GEO?'<g id="bgt"></g>':BGIMG)+'<g id="mg"></g><g id="mpos"></g></svg><div class="mapcredit"><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><div class="mapzoom"><button type="button" data-a="mapin" aria-label="Zoomer">+</button><button type="button" data-a="mapout" aria-label="Dézoomer">−</button><button type="button" data-a="locate" id="locbtn" aria-label="Ma position" aria-pressed="'+(!!POSW)+'">◎</button></div></div>';
   var drawn=0,total=0; visibleStreets().forEach(function(s){streetNums(s.id).forEach(function(n){total++; if(DATA[s.id]&&DATA[s.id][n])drawn++;});});
   return chips+box
-   +'<div class="legend" style="margin:10px 0 0"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
+   +'<div class="legend" style="margin:10px 0 0"><span><i class="l-libre"></i>Pas passé</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-inhab"></i>Inhabitée</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
    +'<p class="hint">Touche une maison pour voir son numéro, y aller avec Waze et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'+(canCreate()&&GEO?'<p class="hint">Administrateur : appuie longtemps sur la carte pour ajouter une maison d\'un autre village à ta tournée.</p>':'')
    +'<p class="note" style="margin:0 0 10px">'+(GEO?'Fond de carte : © OpenStreetMap (nécessite une connexion).':'Fond de carte : contributeurs OpenStreetMap, images fixes (elles deviennent floues en zoomant très près).')+'</p>'
    +'<div class="lks" style="margin:0 0 6px"><a class="lk" href="https://www.openstreetmap.org/#map=16/'+LAT0.toFixed(4)+'/'+LON0.toFixed(4)+'" target="_blank" rel="noopener">Ouvrir le fond de carte OpenStreetMap</a></div>'
@@ -875,7 +927,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.34';
+var DBG=[], VERSION='5.35';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -1846,7 +1898,7 @@ function feuilleData(){
 }
 function frameHTML(x,nums,suite){
   var h='<div class="fr"><h3>'+esc(x.s.nom)+(suite?' (suite)':'')+'</h3><table><thead><tr><th class="n">N°</th><th>Nom</th><th class="m">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
-  nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre'; if(st==='repasse')st='vide';
+  nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', lab=st==='vendu'?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':st==='inhab'?'Inhabitée':'Libre'; if(st==='repasse')st='vide';
     h+='<tr><td class="n">'+esc(n)+'</td><td>'+esc(r&&r.nom||'')+'</td><td class="m">'+(st==='vendu'&&r.montant!=null&&r.montant!==''?esc(eur(r.montant)):'')+'</td><td>'+esc(st==='vendu'?(PAY[r.paiement]||''):'')+'</td><td class="s s-'+st+'">'+lab+'</td></tr>';});
   return h+'</tbody></table></div>';
 }
@@ -2146,7 +2198,7 @@ function exportRows(norecap){
   allStreets().forEach(function(s){ if(cfgR&&cfgR.indexOf(s.id)<0)return; var nums=streetNums(s.id); if(!nums.length)return; var v=villageOf(s.id); (byV[v]=byV[v]||[]).push({s:s,nums:nums}); });
   Object.keys(byV).forEach(function(v){ byV[v].sort(function(a,b){return a.s.nom.localeCompare(b.s.nom,'fr');}).forEach(function(x){
     x.nums.forEach(function(n){ var r=state.ventes[rid(x.s.id,n)], st=r?r.statut:'libre', ven=st==='vendu';
-      var lab=ven?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':'Libre';
+      var lab=ven?'Vendu':st==='boite'?'Boîte aux lettres':st==='refus'?'Refus':st==='repasse'?'':st==='inhab'?'Inhabitée':'Libre';
       rows.push([v,x.s.nom,n,r&&r.nom||'',ven&&r.montant!=null&&r.montant!==''?String(r.montant).replace('.',','):'',ven?(PAY[r.paiement]||''):'',lab,ven?new Date(r.ts||Date.now()).toLocaleDateString('fr-FR'):'']);});});});
   if(!norecap){try{recapRows(rows);}catch(e){}}
   return rows;
@@ -2253,7 +2305,7 @@ function streetHTML(){
   nums.forEach(function(x){var r=state.ventes[rid(id,x)]; if(r&&r.statut==='vendu'){n++; sum+=r.montant||0;}});
   var v=villageOf(id);
   var chips=nums.map(function(x){var r=state.ventes[rid(id,x)], cls=r?'st-'+r.statut:'st-libre', sub='';
-    if(r)sub=r.statut==='vendu'?eur(r.montant):r.statut==='repasse'?('repasse'+(repN(r)?' '+Math.min(repN(r),REP_SWAP)+'/'+REP_SWAP:'')):r.statut==='boite'?'Boîte<br>aux lettres':'refus';
+    if(r)sub=r.statut==='vendu'?eur(r.montant):r.statut==='repasse'?('repasse'+(repN(r)?' '+Math.min(repN(r),REP_SWAP)+'/'+REP_SWAP:'')):r.statut==='boite'?'Boîte<br>aux lettres':r.statut==='inhab'?'inhabitée':'refus';
     return '<button type="button" class="plaque '+cls+(x.length>4&&!/^\d+ \S{1,8}$/.test(x)?' long':'')+'" data-a="chip" data-n="'+esc(x)+'"><b>'+plLabel(x)+'</b><small>'+sub+'</small></button>';}).join('');
   function seg(val){return '<button type="button" data-a="setvillage" data-v="'+val+'" aria-pressed="'+(v===val)+'">'+val+'</button>';}
   return '<button type="button" class="back" data-a="back">← Toutes les rues</button>'
@@ -2267,7 +2319,7 @@ function streetHTML(){
    +'<button type="button" class="btn" data-a="prune" aria-pressed="'+state.prune+'" style="width:100%;margin:0 0 12px">'+(state.prune?'Terminé':'Retirer des numéros')+'</button>'+(canCreate()?'<button type="button" class="btn" data-a="ruedel" data-from="1" data-id="'+esc(id)+'" style="width:100%;margin:0 0 12px;color:var(--accent)">Supprimer cette rue</button>':'')
    +(state.prune?'<p class="hint" style="color:var(--accent);font-weight:600;margin-top:0">Touche un numéro pour le retirer de la liste.</p>':'')
    +'<details class="add" style="margin:0 0 14px"><summary>Coller une liste de numéros</summary><form data-f="addlist"><textarea id="paste" rows="5" placeholder="Un numéro par ligne :&#10;1&#10;2&#10;2 bis&#10;3 ter&#10;4 A" autocomplete="off" aria-label="Liste de numéros"></textarea><button class="btn red" type="submit">Ajouter la liste</button></form></details>'
-   +'<div class="legend"><span><i></i>Libre</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
+   +'<div class="legend"><span><i class="l-libre"></i>Pas passé</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-inhab"></i>Inhabitée</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
    +(chips?'<div class="plaques'+(state.prune?' prune':'')+'">'+chips+'</div>':'<p class="empty">Aucun numéro pour l\'instant. Ajoute-les ci-dessus au fil de la tournée.</p>');
 }
 
@@ -2313,7 +2365,7 @@ function carteHTML(){
 
 /* ---------- fiche de vente ---------- */
 function openSheet(street,num){
-  var id=rid(street,num), r=state.ventes[id], s=streetById(street), st=r?r.statut:'vendu';
+  var id=rid(street,num), r=state.ventes[id], s=streetById(street), st=r&&r.statut!=='inhab'?r.statut:'vendu';
   S={id:id,rue:street,numero:num};
   var q=addrQ(street,num);
   var varRow=/^\d+$/.test(String(num))?'<p class="hint" style="margin:0 0 6px">Ajouter à la liste de cette rue :</p><div class="quick" style="margin:0 0 14px">'+['bis','ter','A','B'].map(function(sf){return '<button type="button" data-a="addvar" data-v="'+esc(num+' '+sf)+'">'+esc(num)+' '+sf+'</button>';}).join('')+'</div>':'';
@@ -2335,6 +2387,13 @@ function openSheet(street,num){
    +'<div class="dz">'+(r?'<button type="button" class="ghost" data-a="reset">Remettre à vide</button>':'')+'<button type="button" class="ghost" data-a="remove">Retirer ce numéro</button></div></div>';
   $('#sheet').hidden=false; document.body.classList.add('lock');
   if(st==='vendu'&&!r)setTimeout(function(){var e=$('#f-nom'); if(e)e.focus();},60);
+}
+function autoInhab(){
+  if(!S||!S.id||state.ventes[S.id])return;
+  if(streetNums(S.rue).indexOf(S.numero)<0)return;
+  var s=streetById(S.rue);
+  putVente({id:S.id,rue:S.rue,rueNom:s?s.nom:'',numero:S.numero,statut:'inhab',nom:'',montant:null,paiement:'',ts:Date.now()});
+  toast('Maison marquée « Inhabitée »');
 }
 function closeSheet(){stopScan(); $('#sheet').hidden=true; $('#sheet').innerHTML=''; document.body.classList.remove('lock'); S=null;}
 function parseAmount(v){var n=parseFloat(String(v).replace(',','.').replace(/[^\d.]/g,'')); return isFinite(n)&&n>0?Math.round(n*100)/100:null;}
@@ -2393,11 +2452,12 @@ function exportCsv(){
 
 /* ---------- événements ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-a]'); if(!t){if(e.target.id==='sheet')closeSheet(); return;}
+  var t=e.target.closest('[data-a]'); if(!t){if(e.target.id==='sheet'){autoInhab(); closeSheet();} return;}
   var a=t.dataset.a;
   if(a==='tab'){if(state.view===t.dataset.v&&state.view==='tournee')state.street=null; state.prune=false; state.view=t.dataset.v; closeSheet(); render(); window.scrollTo(0,0);}
   else if(a==='mapdot'){if(!mp.moved)openSheet(t.dataset.s,t.dataset.n);}
   else if(a==='mapzoom'){if(mp.moved)return; var zid=t.dataset.id||null; mp.sel=zid; mp.vb=zid?streetVB(zid):fullVB(); render();}
+  else if(a==='locate'){if(POSW!=null)posStop(); else posStart();}
   else if(a==='mapin'||a==='mapout'){var v0=mp.vb||fullVB(); mp.vb=v0; mapZoom(a==='mapin'?.5:2, v0[0]+v0[2]/2, v0[1]+v0[3]/2); mapDraw();}
   else if(a==='street'){state.street=t.dataset.id; state.prune=false; render(); window.scrollTo(0,0);}
   else if(a==='back'){state.street=null; state.prune=false; render(); window.scrollTo(0,0);}
@@ -2412,7 +2472,7 @@ document.addEventListener('click',function(e){
   else if(a==='quickadd')addNumbers(t.dataset.v);
   else if(a==='addvar'&&S)addNumbers(t.dataset.v,S.rue);
   else if(a==='rec'){var r=state.ventes[t.dataset.id]; if(r)openSheet(r.rue,r.numero);}
-  else if(a==='close')closeSheet();
+  else if(a==='close'){autoInhab(); closeSheet();}
   else if(a==='menu')menuPanel();
   else if(a==='cas'){casPanel(t.dataset.cid);}
   else if(a==='addcas'){closeSheet(); onbShow();}
@@ -2542,7 +2602,7 @@ document.addEventListener('change',function(e){
     if(!T.cur)throw 0; Object.keys(j.ventes).forEach(function(k){var r=fixRec(j.ventes[k]); if(r&&r.id&&(!state.ventes[k]||(state.ventes[k].ts||0)<=(r.ts||0)))putVente(r);}); toast('Sauvegarde restaurée');}catch(x){toast('Fichier de sauvegarde non reconnu');}};
   fr.readAsText(e.target.files[0]); e.target.value='';
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){var dg3=$('#dlg'); if(dg3)dg3.remove(); else if(!$('#sheet').hidden)closeSheet();}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var dg3=$('#dlg'); if(dg3)dg3.remove(); else if(!$('#sheet').hidden){autoInhab(); closeSheet();}}});
 
 init();
 setTimeout(function(){var sp=document.getElementById('splash'); if(sp){sp.classList.add('out'); setTimeout(function(){sp.remove();},600);}},1800);
