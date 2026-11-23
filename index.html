@@ -380,9 +380,7 @@ input[type=text]{width:100%}
 .fx{border:2px solid #111; min-height:22px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px}
 .pgp .fr td{padding:2px 6px!important}.pgp .fr th{padding:2px 6px!important}.pgp .fr h3{padding:3px 8px}
 .cjnav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0 4px}.cjnav b{font-size:18px; text-transform:capitalize}.cjnav button{min-width:52px; min-height:52px; border-radius:14px; border:2px solid var(--line,#444); background:transparent; color:inherit; font-size:26px}.cjnav button:disabled{opacity:.3}
-.mdot.libre{fill:#c9ced6; stroke:#8b93a0}
 .mdot.inhab{fill:#7c5cbf; stroke:#7c5cbf}
-.legend .l-libre{background:#c9ced6; border:2px solid #8b93a0}
 .legend .l-inhab{background:#7c5cbf; border:2px solid #7c5cbf}
 .plaque.st-inhab{background:#7c5cbf; color:#fff; border-color:#7c5cbf; box-shadow:none}
 #mpos{pointer-events:none}
@@ -391,21 +389,19 @@ input[type=text]{width:100%}
 .pcone{fill:rgba(26,115,232,.38)}
 .mapzoom #locbtn{font-size:22px}
 .mapzoom #locbtn[aria-pressed=true]{background:#1a73e8; color:#fff}
-.mdot.libre{fill:#111; stroke:#111}
-.legend .l-libre{background:#111; border:2px solid #111}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .mdot.libre{fill:#f2f2f2; stroke:#f2f2f2}:root:not([data-theme=light]) .legend .l-libre{background:#f2f2f2; border-color:#f2f2f2}}
 #inh{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(84px + env(safe-area-inset-bottom,0px)); z-index:31; background:var(--fg); color:var(--bg); padding:8px 8px 8px 18px; border-radius:999px; font-weight:600; display:flex; align-items:center; gap:14px; max-width:92%}
 #inh button{border:0; border-radius:999px; background:#7c5cbf; color:#fff; font-weight:700; font-size:16px; padding:10px 22px; min-height:44px}
 .seg .sg span{padding-left:6px; padding-right:6px; font-size:15px}
+.ph .tt[data-a=sheetrue]{cursor:pointer; text-decoration:underline dotted; text-underline-offset:4px}
 </style>
 </head>
 <body>
-<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v5.36</p></div>
+<div id="splash" aria-hidden="true"><img src="icon-192.png" alt="" width="132" height="132"><p class="sp-t">Tournée calendriers</p><p class="sp-b">Créé par Noah Fournier · v6.2</p></div>
 
 <header>
   <button type="button" class="menubtn" data-a="menu" aria-label="Menu des tournées"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="4.5" r="2.4" fill="currentColor"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><circle cx="12" cy="19.5" r="2.4" fill="currentColor"/></svg></button>
   <span class="bdg" id="bdg" hidden></span><h1 id="tname">Tournée calendriers</h1>
-  <p class="sub">Calendriers des pompiers · v5.36</p>
+  <p class="sub">Calendriers des pompiers · v6.2</p>
   <p class="sync" id="sync" role="status"></p>
 </header>
 <main id="main"></main>
@@ -591,7 +587,7 @@ function mapBlock(){
   var drawn=0,total=0; visibleStreets().forEach(function(s){streetNums(s.id).forEach(function(n){total++; if(DATA[s.id]&&DATA[s.id][n])drawn++;});});
   return chips+box
    +'<div class="legend" style="margin:10px 0 0"><span><i class="l-libre"></i>Non visitée</span><span><i class="l-vendu"></i>Vendu</span><span><i class="l-repasse"></i>Repasse</span><span><i class="l-refus"></i>Refus</span><span><i class="l-inhab"></i>Inhabitée</span><span><i class="l-boite"></i>Boîte aux lettres</span></div>'
-   +'<p class="hint">Touche une maison pour voir son numéro, y aller avec Waze et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'+(canCreate()&&GEO?'<p class="hint">Administrateur : appuie longtemps sur la carte pour ajouter une maison d\'un autre village à ta tournée.</p>':'')
+   +'<p class="hint">Touche une maison pour voir son numéro et remplir la vente. Pince l\'écran ou utilise + et − pour zoomer.</p>'+(canCreate()&&GEO?'<p class="hint">Administrateur : appuie longtemps sur la carte pour ajouter une maison d\'un autre village à ta tournée.</p>':'')
    +'<p class="note" style="margin:0 0 10px">'+(GEO?'Fond de carte : © OpenStreetMap (nécessite une connexion).':'Fond de carte : contributeurs OpenStreetMap, images fixes (elles deviennent floues en zoomant très près).')+'</p>'
    +'<div class="lks" style="margin:0 0 6px"><a class="lk" href="https://www.openstreetmap.org/#map=16/'+LAT0.toFixed(4)+'/'+LON0.toFixed(4)+'" target="_blank" rel="noopener">Ouvrir le fond de carte OpenStreetMap</a></div>'
    +(total>drawn?'<p class="note">'+(total-drawn)+' numéros ajoutés à la main n\'ont pas de position sur le plan.</p>':'');
@@ -938,7 +934,7 @@ function tilesSvg(vb){
 }
 
 /* recherche et téléchargement des adresses */
-var DBG=[], VERSION='5.36';
+var DBG=[], VERSION='6.2';
 function fetchJ(url,ms){var c=new AbortController(), t=setTimeout(function(){c.abort();},ms||15000); return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t); if(!r.ok){DBG.push(url.split('?')[0].replace('https://','')+' → http '+r.status); throw new Error('http'+r.status);} return r;},function(e){clearTimeout(t); DBG.push(url.split('?')[0].replace('https://','')+' → '+((e&&(e.message||e.name))||'erreur')); throw e;});}
 var DB=null, DBP=null, HAMS=[], HAMK={};
 function loadDB(){
@@ -2384,8 +2380,7 @@ function openSheet(street,num){
   var pays=Object.keys(PAY).map(function(k){return '<label class="cb"><input type="checkbox" name="pay" value="'+k+'"'+(r&&r.paiement===k?' checked':'')+'><span class="box">✕</span><span>'+PAY[k]+'</span></label>';}).join('');
   var useB=boiteSwap(r), radios=['vendu',useB?'boite':'repasse','refus','inhab'].map(function(k){return '<label class="sg"'+(k==='boite'?' style="flex:1.8"':'')+'><input type="radio" name="st" value="'+k+'"'+((st===k||(k==='boite'&&st==='repasse'))?' checked':'')+'><span>'+(k==='boite'?'Boîte aux lettres':STAT[k])+'</span></label>';}).join('');
   $('#sheet').innerHTML='<div class="panel" role="dialog" aria-modal="true" aria-label="Fiche de vente">'
-   +'<div class="ph"><div class="pl">'+esc(num)+'</div><div class="tt">'+esc(s?s.nom:'')+'<small>'+villageOf(street)+'</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div>'
-   +'<div class="lks" style="margin:0 0 14px"><a class="lk go" href="'+esc(wazeUrl(q))+'" target="_blank" rel="noopener">Y aller avec Waze</a><a class="lk" href="'+esc(mapUrl(q))+'" target="_blank" rel="noopener">'+(IOS?'Plan':'Google Maps')+'</a></div>'
+   +'<div class="ph"><div class="pl">'+esc(num)+'</div><div class="tt" data-a="sheetrue" role="button">'+esc(s?s.nom:'')+'<small>'+villageOf(street)+'</small></div><button type="button" class="x" data-a="close" aria-label="Fermer">✕</button></div>'
    +varRow
    +'<div class="seg" role="radiogroup" aria-label="Résultat du passage">'+radios+'</div>'
    +'<p class="hint" id="rephint" style="margin:8px 2px 0">'+esc(repHint(r))+(isAdm()&&!useB?' <button type="button" id="repsimb" data-a="repsim"'+(st==='repasse'?'':' hidden')+' style="border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;padding:4px 0;min-height:0">Test : simuler 2 repasses</button>':'')+'</p>'
@@ -2506,6 +2501,9 @@ document.addEventListener('click',function(e){
   else if(a==='rec'){var r=state.ventes[t.dataset.id]; if(r)openSheet(r.rue,r.numero);}
   else if(a==='close'){autoInhab(); closeSheet(); mapAfter();}
   else if(a==='inhyes')inhYes();
+  else if(a==='sheetrue'){if(!S)return; var od=$('#dlg'); if(od)od.remove(); var dd=document.createElement('div'); dd.id='dlg'; dd.className='dlg'; dd.dataset.rue=S.rue;
+    dd.innerHTML='<div class="dlgbox" role="alertdialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt">Voir cette rue sur la carte ?</h3><p>Ses maisons ressortent, les autres restent en retrait.</p><button type="button" class="primary" data-a="ruemap">Voir sur la carte</button><button type="button" class="mi" data-a="dlgno" style="margin-top:10px">Rester ici</button></div>'; document.body.appendChild(dd);}
+  else if(a==='ruemap'){var rd=$('#dlg'); var rr=rd&&rd.dataset.rue; if(rd)rd.remove(); if(rr&&DATA[rr]){closeSheet(); state.prune=false; state.view='carte'; mp.sel=rr; mp.vb=streetVB(rr); render(); window.scrollTo(0,0);} else toast('Cette rue n’est pas sur la carte');}
   else if(a==='menu')menuPanel();
   else if(a==='cas'){casPanel(t.dataset.cid);}
   else if(a==='addcas'){closeSheet(); onbShow();}
